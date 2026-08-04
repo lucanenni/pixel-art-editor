@@ -19,6 +19,7 @@ Built as a teaching tool for vocational school students (graphic design and IT t
   - as a **PNG** image (`Scarica immagine`)
   - as a **JSON** file describing the full drawing state (`Esporta JSON`), so it can be reloaded later
 - **Import** a previously exported JSON drawing (`Importa JSON`)
+- **QR code sharing** (`Mostra QR code`) — generates a QR code encoding the drawing itself; scanning it reopens the app with the drawing restored and automatically downloads it as a PNG
 - **Clear canvas** (`Cancella tutto`)
 
 ## Getting started
@@ -46,7 +47,8 @@ Then visit `http://localhost:8000`.
 3. Enable **eyedropper mode** to pick up a color from a pixel you've already drawn instead of painting.
 4. Use **Scarica immagine** to download a PNG snapshot of the canvas (grid lines included), or **Esporta JSON** to save the drawing data for later editing.
 5. Use **Importa JSON** to reload a drawing previously exported from this app.
-6. **Cancella tutto** wipes the canvas back to blank.
+6. Use **Mostra QR code** to generate a QR code for the current drawing — scanning it (or opening the underlying URL) reopens the app with the drawing restored and downloads it as a PNG automatically. Very large/detailed drawings may exceed the data capacity of a QR code; in that case a metadata-only code is shown instead, with a message suggesting a smaller grid or `Esporta JSON`.
+7. **Cancella tutto** wipes the canvas back to blank.
 
 ### JSON export format
 
@@ -85,7 +87,7 @@ Then visit `http://localhost:8000`.
 
 ## Known limitations
 
-- **QR code sharing** is implemented (`showQRCode()` in `script.js`) but its button is currently commented out in `index.html` — it's disabled in the UI. The current implementation encodes the canvas' PNG data URL directly into the QR code, which only works for very small/simple drawings before hitting QR code capacity limits.
+- **QR code sharing** encodes the drawing's data (grid size, palette, pixels) in the URL, not the image itself — very large or highly detailed drawings can still exceed a QR code's data capacity, in which case a metadata-only code is generated (see above).
 - No undo/redo.
 - Import validation is minimal (see above).
 
@@ -93,7 +95,6 @@ Then visit `http://localhost:8000`.
 
 - Undo/redo
 - Bucket fill
-- A working, capacity-aware QR sharing flow (e.g. encoding compact drawing data instead of the raw image)
 - Auto-save via `localStorage`/`sessionStorage`
 - XML import/export alongside JSON
 

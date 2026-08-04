@@ -221,31 +221,102 @@ function toggleEyedropper() {
     canvas.style.cursor = eyedropperMode ? "pointer" : "crosshair";
 }
 
+// Capienza pratica di un QR code affidabile da scansionare: oltre questa
+// soglia (in caratteri dell'URL) passiamo al fallback "solo metadati".
+const QR_URL_LENGTH_LIMIT = 2000;
+
 function showQRCode() {
     const modal = document.getElementById("qrModal");
     const qrcodeDiv = document.getElementById("qrcode");
+    const qrMessage = document.getElementById("qrMessage");
 
-    // Pulisci il QR code precedente
+    // Pulisci il QR code e il messaggio precedenti
     qrcodeDiv.innerHTML = "";
+    qrMessage.textContent = "";
 
-    // Genera il data URL dell'immagine
-    const imageDataURL = canvas.toDataURL("image/png");
+    // Il PNG del canvas è troppo grande per un QR code: codifichiamo invece
+    // solo i dati del disegno (griglia, palette, pixel), in forma compatta,
+    // dentro l'URL della pagina stessa. Chi scansiona il codice riapre
+    // questa pagina, che ricostruisce il disegno da quei dati.
+    const compactData = { g: gridSize, p: currentPalette, d: pixels };
+    const encodedData = encodeURIComponent(btoa(JSON.stringify(compactData)));
+    const shareURL = `${location.origin}${location.pathname}?data=${encodedData}`;
 
-    // Crea il QR code
-    new QRCode(qrcodeDiv, {
-        text: imageDataURL,
-        width: 256,
-        height: 256,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.L
-    });
+    if (shareURL.length > QR_URL_LENGTH_LIMIT) {
+        // Il disegno è troppo grande per starci in un QR code affidabile:
+        // generiamo un QR con solo i metadati (nessun URL funzionante) e
+        // avvisiamo l'utente invece di generare un codice illeggibile.
+        new QRCode(qrcodeDiv, {
+            text: `Pixel art editor - ${gridSize}x${gridSize}, ${Object.keys(pixels).length} pixel colorati`,
+            width: 256,
+            height: 256,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.L
+        });
+        qrMessage.textContent =
+            "Il disegno è troppo grande per essere condiviso via QR code (limite di capienza del QR). Prova con una griglia più piccola o meno pixel colorati, oppure usa 'Esporta JSON'.";
+    } else {
+        new QRCode(qrcodeDiv, {
+            text: shareURL,
+            width: 256,
+            height: 256,
+            colorDark: "#000000",
+            colorLight: "#ffffff",
+            correctLevel: QRCode.CorrectLevel.L
+        });
+        qrMessage.textContent =
+            "Scansiona il codice per aprire il disegno e scaricarlo automaticamente come immagine.";
+    }
 
     modal.style.display = "block";
 }
 
 function closeQRModal() {
     document.getElementById("qrModal").style.display = "none";
+}
+
+// Se la pagina è stata aperta scansionando un QR code (parametro ?data=
+// nella query string), ricostruisce il disegno codificato e ne avvia
+// automaticamente il download come immagine PNG.
+function loadSharedDrawingFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    const data = params.get("data");
+    if (!data) return;
+
+    try {
+        const compactData = JSON.parse(atob(decodeURIComponent(data)));
+        if (!compactData.d || !compactData.g) return;
+
+        gridSize = compactData.g;
+        pixelSize = canvas.width / gridSize;
+        document.getElementById("gridSizeSelect").value = gridSize;
+
+        if (compactData.p) {
+            currentPalette = compactData.p;
+            document.getElementById("paletteSelect").value = currentPalette;
+            initColorPalette();
+        }
+
+        clearCanvas();
+
+        pixels = compactData.d;
+        for (const key in pixels) {
+            const [x, y] = key.split(",").map(Number);
+            drawPixel(x, y, pixels[key]);
+        }
+
+        // Aspetta che il canvas sia renderizzato, poi scarica automaticamente
+        // l'immagine e ripulisce l'URL per evitare download ripetuti a un
+        // eventuale refresh della pagina.
+        setTimeout(() => {
+            downloadImage();
+            const cleanURL = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, document.title, cleanURL);
+        }, 100);
+    } catch (error) {
+        console.error("Errore nel caricamento del disegno condiviso:", error);
+    }
 }
 
 function exportDrawing() {
@@ -323,3 +394,4 @@ function importDrawing(event) {
 // Inizializza
 clearCanvas();
 initColorPalette();
+loadSharedDrawingFromURL();

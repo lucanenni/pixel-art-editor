@@ -83,13 +83,23 @@ Events registered on the canvas: `mousedown` (sets `isDrawing = true` and draws)
 
 ⚠️ No deep validation of `pixels`' content (e.g. out-of-grid coordinates, malformed colors). Worth hardening if the import ever handles untrusted files.
 
-## QR code (currently disabled)
+## QR code
 
-`showQRCode()` generates a QR code by passing the canvas' PNG data URL (`canvas.toDataURL("image/png")`) directly as the `text` payload to the `QRCode` library (CDN). This does not scale: QR codes only hold a few thousand bytes, far less than a base64-encoded PNG for anything but a near-blank drawing, so the library throws for most real drawings.
+The QR code does **not** contain the PNG image (too large for a QR code's capacity, which is a few thousand bytes at most). Instead it encodes a URL back to this same page, with the drawing data compressed into the query string:
 
-Because of this, the `Mostra QR code` button is currently **commented out** in `index.html`, and the feature is not reachable from the UI. The modal markup (`#qrModal`, `#qrcode`, `#qrMessage`) and the `qrcodejs` CDN script tag are still present, ready to be wired back up once the underlying approach is fixed.
+```
+?data=<base64(compact JSON with abbreviated keys g/p/d)>
+```
 
-A more scalable design was explored in earlier iterations (see [CHANGELOG.md](CHANGELOG.md)): encode a compact JSON representation of the drawing (`{ g: gridSize, p: palette, d: pixels }`) as a base64 query string instead of the raw image, with a `DOMContentLoaded` listener that detects `?data=` on load, restores the drawing, and auto-downloads the PNG. That approach is **not** implemented in the current `script.js` — it's listed under future improvements in the README.
+`showQRCode()`:
+1. builds the compact object `{ g: gridSize, p: currentPalette, d: pixels }`
+2. serializes it and encodes it as base64 + URL-encoding
+3. if the resulting URL exceeds `QR_URL_LENGTH_LIMIT` (~2000 characters — the practical reliability limit for scanning), it generates a QR code with text metadata only (no working URL) instead, and warns the user via `#qrMessage`
+4. otherwise it generates a QR code with the full URL, using the `QRCode` library (CDN)
+
+On page load, `loadSharedDrawingFromURL()` checks for a `?data=` query parameter: if present, it decodes it, restores the state (grid/palette/pixels), redraws it, and after a short `setTimeout` (to let the render complete) automatically calls `downloadImage()`, then cleans up the URL with `history.replaceState` to avoid repeated downloads on a page refresh.
+
+**Known limitation**: a standard QR code's capacity is limited; drawings with many colored pixels (especially on large grids) can exceed the threshold and fall back to the "metadata only" case. There is currently no fallback that still loads the drawing in that case — the user is pointed to `Esporta JSON` instead.
 
 ## Points of attention for future changes
 

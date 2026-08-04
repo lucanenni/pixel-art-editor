@@ -48,9 +48,16 @@ History of the pixel art editor's features, in chronological order.
 - **Bug fix**: `Cannot read properties of undefined` — caused by trying to generate an oversized QR code with the base64 image
 - **Bug fix**: reference to `#qrMessage`, never created in the markup, caused an error when writing the result message; the corresponding `div` and its reference lookup were added
 
+## v1.7 - Working QR code sharing
+
+- Reworked `showQRCode()` to encode compact drawing data (`{ g: gridSize, p: palette, d: pixels }`, base64-encoded) into a URL query string instead of the raw PNG, fixing the capacity problem from v1.6
+- Added `loadSharedDrawingFromURL()`: on page load, if a `?data=` parameter is present, the drawing is restored and automatically downloaded as a PNG, then the URL is cleaned up (`history.replaceState`) to avoid repeated downloads on refresh
+- Added a fallback for drawings whose encoded URL exceeds ~2000 characters (the practical capacity/reliability limit for scanning): a metadata-only QR code is shown, with a message suggesting a smaller grid or `Esporta JSON` instead
+- Re-enabled the `Mostra QR code` button, previously commented out in `index.html` because the v1.6 implementation didn't reliably work
+- **Bug fix**: the palette `<select>` had "CGA" marked as the selected `<option>`, while `script.js` initializes `currentPalette` to `"vga"` — the palette actually rendered on load (VGA, 256 colors) didn't match what the dropdown displayed. The default option was corrected to VGA, matching both the JS default and the original v1.3 intent.
+
 ## Known issues
 
-- **QR code is disabled**: a more scalable design (compact JSON drawing data, base64-encoded in a URL query string, with an auto-load-and-download listener for `?data=` on page load) was explored to work around the capacity problem, but was never finished/merged — the shipped `script.js` still encodes the raw PNG directly, which fails for anything but near-blank drawings. As a result, the `Mostra QR code` button is commented out in `index.html`. See the "QR code (currently disabled)" section in [ARCHITECTURE.md](ARCHITECTURE.md) and the roadmap in [README.md](README.md).
-- Palette/grid select defaults have drifted from the JS defaults before (e.g. the palette dropdown not matching `currentPalette`'s initial value) — worth double-checking after any change to either side.
+- QR code capacity is still limited: drawings with many colored pixels (especially on large grids) can exceed the ~2000-character threshold and fall back to the metadata-only QR code, which does not itself carry the drawing.
 - JSON import has only minimal validation (doesn't check for out-of-grid coordinates or malformed colors).
 - No undo/redo.
