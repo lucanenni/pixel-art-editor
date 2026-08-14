@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel art editor</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Pixel art editor</h1>
+
+      <div class="editor-area">
+        <div class="canvas-section">
+          <canvas id="pixelCanvas" width="512" height="512"></canvas>
+          <div class="buttons">
+            <button class="btn-clear" onclick="clearCanvas()">
+              Cancella tutto
+            </button>
+            <button class="btn-download" onclick="downloadImage()">
+              Scarica immagine
+            </button>
+            <button class="btn-qr" onclick="showQRCode()">
+              Mostra QR code
+            </button>
+            <button class="btn-export" onclick="exportDrawing()">
+              Esporta JSON
+            </button>
+            <button
+              class="btn-import"
+              onclick="document.getElementById('importFile').click()"
+            >
+              Importa JSON
+            </button>
+          </div>
+          <input
+            type="file"
+            id="importFile"
+            accept=".json"
+            style="display: none"
+            onchange="importDrawing(event)"
+          />
+        </div>
+
+        <div class="right-panel">
+          <div class="horizontal-panel">
+            <div class="control-group">
+              <h3>Colore</h3>
+              <div id="currentColor" class="current-color"></div>
+            </div>
+            <div class="control-group">
+              <h3>Griglia</h3>
+              <select id="gridSizeSelect" onchange="changeGridSize()">
+                <option value="8">8x8</option>
+                <option value="12">12x12</option>
+                <option value="16">16x16</option>
+                <option value="24">24x24</option>
+                <option value="32" selected>32x32</option>
+              </select>
+            </div>
+            <div class="control-group">
+              <h3>Palette</h3>
+              <select id="paletteSelect" onchange="changePalette()">
+                <option value="cga">CGA (16 colori)</option>
+                <option value="ega">EGA (64 colori)</option>
+                <option value="vga" selected>VGA (256 colori)</option>
+              </select>
+            </div>
+          </div>
+          <div class="control-group">
+            <h3>Tavolozza colori</h3>
+            <div id="colorPalette"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modale per QR Code -->
+    <div id="qrModal" class="modal" onclick="closeQRModal()">
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <span class="close" onclick="closeQRModal()">&times;</span>
+        <h2>QR code del tuo disegno</h2>
+        <div id="qrcode"></div>
+        <div id="qrMessage"></div>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
