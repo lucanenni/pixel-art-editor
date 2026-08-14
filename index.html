@@ -14,7 +14,13 @@
         <div class="canvas-section">
           <canvas id="pixelCanvas" width="512" height="512"></canvas>
           <div class="buttons">
-            <button class="btn-clear" onclick="clearCanvas()">
+            <button id="undoBtn" class="btn-undo" onclick="undo()" disabled>
+              Annulla
+            </button>
+            <button id="redoBtn" class="btn-redo" onclick="redo()" disabled>
+              Ripeti
+            </button>
+            <button class="btn-clear" onclick="clearAll()">
               Cancella tutto
             </button>
             <button class="btn-download" onclick="downloadImage()">
