@@ -23,6 +23,62 @@ function isValidRGBColor(color) {
     return match.slice(1, 4).every((component) => Number(component) <= 255);
 }
 
+// Cronologia per undo/redo: ogni voce è un'istantanea completa di `pixels`.
+// È legata alla gridSize corrente: cambiare griglia svuota la cronologia,
+// perché le coordinate salvate non avrebbero più senso con un'altra griglia.
+let undoStack = [];
+let redoStack = [];
+const MAX_HISTORY = 50;
+
+function snapshotPixels() {
+    return { ...pixels };
+}
+
+// Salva lo stato corrente nella cronologia undo, prima di una modifica.
+// Da chiamare SEMPRE prima di applicare la modifica, non dopo.
+function pushUndoState() {
+    undoStack.push(snapshotPixels());
+    if (undoStack.length > MAX_HISTORY) undoStack.shift();
+    // una nuova azione invalida i "ripeti" disponibili
+    redoStack = [];
+    updateUndoRedoButtons();
+}
+
+function clearHistory() {
+    undoStack = [];
+    redoStack = [];
+    updateUndoRedoButtons();
+}
+
+function updateUndoRedoButtons() {
+    document.getElementById("undoBtn").disabled = undoStack.length === 0;
+    document.getElementById("redoBtn").disabled = redoStack.length === 0;
+}
+
+// Ridisegna il canvas da zero a partire da un'istantanea di pixels
+function restorePixels(snapshot) {
+    clearCanvas(); // azzera pixels e ridisegna sfondo + griglia
+    pixels = { ...snapshot };
+    for (const key in pixels) {
+        const [x, y] = key.split(",").map(Number);
+        drawPixel(x, y, pixels[key]);
+    }
+}
+
+function undo() {
+    if (undoStack.length === 0) return;
+    redoStack.push(snapshotPixels());
+    restorePixels(undoStack.pop());
+    updateUndoRedoButtons();
+}
+
+function redo() {
+    if (redoStack.length === 0) return;
+    undoStack.push(snapshotPixels());
+    restorePixels(redoStack.pop());
+    updateUndoRedoButtons();
+}
+
 // Palette CGA (16 colori originali)
 function generateCGAColors() {
     return [
@@ -197,6 +253,10 @@ function handleDraw(e) {
 
 canvas.addEventListener("mousedown", (e) => {
     isDrawing = true;
+    // Un intero tratto (drag) è un solo passo di undo: salvo lo stato solo
+    // all'inizio del tratto, non ad ogni pixel disegnato durante il drag.
+    // In modalità contagocce non si disegna, quindi non salvo nulla.
+    if (!eyedropperMode) pushUndoState();
     handleDraw(e);
 });
 
@@ -205,6 +265,19 @@ canvas.addEventListener("mouseup", () => (isDrawing = false));
 canvas.addEventListener("mouseleave", () => (isDrawing = false));
 canvas.addEventListener("click", handleDraw);
 
+document.addEventListener("keydown", (e) => {
+    const ctrlOrCmd = e.ctrlKey || e.metaKey;
+    if (!ctrlOrCmd) return;
+
+    if (e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+    } else if (e.key === "y" || (e.key === "z" && e.shiftKey)) {
+        e.preventDefault();
+        redo();
+    }
+});
+
 function clearCanvas() {
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -212,10 +285,19 @@ function clearCanvas() {
     drawGrid();
 }
 
+// Wrapper per il pulsante "Cancella tutto": rende l'azione annullabile
+function clearAll() {
+    if (Object.keys(pixels).length > 0) pushUndoState();
+    clearCanvas();
+}
+
 function changeGridSize() {
     gridSize = parseInt(document.getElementById("gridSizeSelect").value);
     pixelSize = canvas.width / gridSize;
     clearCanvas();
+    // Le istantanee salvate finora hanno coordinate relative alla vecchia
+    // griglia: non avrebbe senso riapplicarle con la nuova dimensione
+    clearHistory();
 }
 
 function changePalette() {
@@ -301,6 +383,9 @@ function loadSharedDrawingFromURL() {
     try {
         const compactData = JSON.parse(atob(decodeURIComponent(data)));
         if (!compactData.d || !compactData.g) return;
+
+        // Disegno caricato da zero: nessuna cronologia precedente ha senso
+        clearHistory();
 
         gridSize = compactData.g;
         pixelSize = canvas.width / gridSize;
@@ -405,6 +490,15 @@ function importDrawing(event) {
                 validPixels[key] = color;
             }
 
+            // Se la griglia cambia, le istantanee salvate finora non hanno
+            // più senso (vedi changeGridSize); altrimenti l'import diventa
+            // un normale passo annullabile con undo
+            if (newGridSize !== gridSize) {
+                clearHistory();
+            } else {
+                pushUndoState();
+            }
+
             // Ripristina la dimensione della griglia
             gridSize = newGridSize;
             pixelSize = canvas.width / gridSize;
@@ -452,3 +546,4 @@ function importDrawing(event) {
 clearCanvas();
 initColorPalette();
 loadSharedDrawingFromURL();
+updateUndoRedoButtons();

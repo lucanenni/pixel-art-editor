@@ -20,6 +20,7 @@ Built as a teaching tool for vocational school students (graphic design and IT t
   - as a **JSON** file describing the full drawing state (`Esporta JSON`), so it can be reloaded later
 - **Import** a previously exported JSON drawing (`Importa JSON`)
 - **QR code sharing** (`Mostra QR code`) — generates a QR code encoding the drawing itself; scanning it reopens the app with the drawing restored and automatically downloads it as a PNG
+- **Undo/redo** (`Annulla`/`Ripeti`, or Ctrl+Z / Ctrl+Y) — steps back and forward through drawing actions
 - **Clear canvas** (`Cancella tutto`)
 
 ## Getting started
@@ -48,7 +49,8 @@ Then visit `http://localhost:8000`.
 4. Use **Scarica immagine** to download a PNG snapshot of the canvas (grid lines included), or **Esporta JSON** to save the drawing data for later editing.
 5. Use **Importa JSON** to reload a drawing previously exported from this app.
 6. Use **Mostra QR code** to generate a QR code for the current drawing — scanning it (or opening the underlying URL) reopens the app with the drawing restored and downloads it as a PNG automatically. Very large/detailed drawings may exceed the data capacity of a QR code; in that case a metadata-only code is shown instead, with a message suggesting a smaller grid or `Esporta JSON`.
-7. **Cancella tutto** wipes the canvas back to blank.
+7. Use **Annulla**/**Ripeti** (or Ctrl+Z / Ctrl+Y) to undo/redo drawing actions — one step per stroke, clear, or same-size import. Changing the grid size (or importing a drawing with a different size) resets the undo history.
+8. **Cancella tutto** wipes the canvas back to blank.
 
 ### JSON export format
 
@@ -88,11 +90,10 @@ Then visit `http://localhost:8000`.
 ## Known limitations
 
 - **QR code sharing** encodes the drawing's data (grid size, palette, pixels) in the URL, not the image itself — very large or highly detailed drawings can still exceed a QR code's data capacity, in which case a metadata-only code is generated (see above). This is an inherent limit of QR codes, not something a client-only app can fix.
-- No undo/redo.
+- **Undo/redo history is reset on grid size changes** (including importing a drawing with a different size), since saved snapshots' coordinates wouldn't be meaningful against a different grid.
 
 ## Possible future improvements
 
-- Undo/redo
 - Bucket fill
 - Auto-save via `localStorage`/`sessionStorage`
 - XML import/export alongside JSON

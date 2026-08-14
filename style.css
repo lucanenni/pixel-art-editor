@@ -148,6 +148,36 @@ button {
     min-width: 140px;
 }
 
+.btn-undo {
+    background: #34495e;
+    color: white;
+}
+
+.btn-undo:hover {
+    background: #2c3e50;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.btn-redo {
+    background: #16a085;
+    color: white;
+}
+
+.btn-redo:hover {
+    background: #138d75;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+button:disabled,
+button:disabled:hover {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
 .btn-clear {
     background: #e74c3c;
     color: white;
