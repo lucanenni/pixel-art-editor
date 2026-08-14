@@ -77,11 +77,11 @@ Events registered on the canvas: `mousedown` (sets `isDrawing = true` and draws)
 `importDrawing(event)`:
 1. reads the file with `FileReader`
 2. validates that `pixels` and `gridSize` are present
-3. restores `gridSize`, `pixelSize`, and the UI select
-4. if present, restores `palette` and calls `initColorPalette()`
-5. calls `clearCanvas()` then redraws every pixel from `pixels` with `drawPixel()`
-
-⚠️ No deep validation of `pixels`' content (e.g. out-of-grid coordinates, malformed colors). Worth hardening if the import ever handles untrusted files.
+3. validates `gridSize` against `VALID_GRID_SIZES` and, if present, `palette` against `VALID_PALETTES` — rejects the import with an `alert` otherwise (this guards against e.g. a corrupted/hand-edited file with a huge `gridSize` hanging the tab while rendering the grid)
+4. filters `pixels`: keeps only entries whose key matches `"x,y"` inside `[0, gridSize)` and whose value matches `RGB_COLOR_PATTERN` (`isValidRGBColor`); anything else is dropped silently, and the final alert reports how many entries were skipped
+5. restores `gridSize`, `pixelSize`, and the UI select
+6. if present, restores `palette` and calls `initColorPalette()`
+7. calls `clearCanvas()` then redraws every pixel from the filtered `pixels` with `drawPixel()`
 
 ## QR code
 

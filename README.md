@@ -62,7 +62,7 @@ Then visit `http://localhost:8000`.
 }
 ```
 
-`pixels` maps each painted cell (`"x,y"`) to its CSS color string. Import only checks that `pixels` and `gridSize` are present — coordinates outside the grid or malformed colors aren't validated further.
+`pixels` maps each painted cell (`"x,y"`) to its CSS color string. On import, `gridSize` and `palette` are checked against the app's known values, and each pixel entry is validated (well-formed `"x,y"` key inside the grid, `rgb(r,g,b)` color with components ≤ 255) — invalid entries are dropped and the user is told how many were skipped.
 
 ## Project structure
 
@@ -87,9 +87,8 @@ Then visit `http://localhost:8000`.
 
 ## Known limitations
 
-- **QR code sharing** encodes the drawing's data (grid size, palette, pixels) in the URL, not the image itself — very large or highly detailed drawings can still exceed a QR code's data capacity, in which case a metadata-only code is generated (see above).
+- **QR code sharing** encodes the drawing's data (grid size, palette, pixels) in the URL, not the image itself — very large or highly detailed drawings can still exceed a QR code's data capacity, in which case a metadata-only code is generated (see above). This is an inherent limit of QR codes, not something a client-only app can fix.
 - No undo/redo.
-- Import validation is minimal (see above).
 
 ## Possible future improvements
 

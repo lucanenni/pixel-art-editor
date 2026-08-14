@@ -56,8 +56,13 @@ History of the pixel art editor's features, in chronological order.
 - Re-enabled the `Mostra QR code` button, previously commented out in `index.html` because the v1.6 implementation didn't reliably work
 - **Bug fix**: the palette `<select>` had "CGA" marked as the selected `<option>`, while `script.js` initializes `currentPalette` to `"vga"` — the palette actually rendered on load (VGA, 256 colors) didn't match what the dropdown displayed. The default option was corrected to VGA, matching both the JS default and the original v1.3 intent.
 
+## v1.1.0 - Hardened JSON import validation
+
+- `importDrawing()` now validates `gridSize` against the app's supported sizes (8/12/16/24/32) and `palette` against the supported palettes before applying them, instead of trusting the file blindly — an out-of-range `gridSize` (e.g. from a corrupted or hand-edited file) could previously make the app try to render a huge grid and hang the tab
+- Each `pixels` entry is now validated individually: the key must be a well-formed `"x,y"` pair inside the grid, and the value must be a `rgb(r,g,b)` string with components ≤ 255; anything else (malformed coordinates, out-of-grid pixels, non-color strings) is silently dropped instead of being drawn or crashing the import
+- The success message now reports how many pixels were skipped, if any
+
 ## Known issues
 
-- QR code capacity is still limited: drawings with many colored pixels (especially on large grids) can exceed the ~2000-character threshold and fall back to the metadata-only QR code, which does not itself carry the drawing.
-- JSON import has only minimal validation (doesn't check for out-of-grid coordinates or malformed colors).
+- QR code capacity is still limited: drawings with many colored pixels (especially on large grids) can exceed the ~2000-character threshold and fall back to the metadata-only QR code, which does not itself carry the drawing. This is inherent to QR codes and not fixable client-side.
 - No undo/redo.
