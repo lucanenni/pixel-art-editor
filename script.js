@@ -9,6 +9,20 @@ let pixels = {};
 let currentPalette = "vga";
 let eyedropperMode = false;
 
+// Valori ammessi per griglia e palette, usati per validare i file importati
+const VALID_GRID_SIZES = [8, 12, 16, 24, 32];
+const VALID_PALETTES = ["cga", "ega", "vga"];
+// Un colore valido è una stringa "rgb(r,g,b)" con componenti 0-255
+const RGB_COLOR_PATTERN =
+    /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/;
+
+function isValidRGBColor(color) {
+    if (typeof color !== "string") return false;
+    const match = RGB_COLOR_PATTERN.exec(color);
+    if (!match) return false;
+    return match.slice(1, 4).every((component) => Number(component) <= 255);
+}
+
 // Palette CGA (16 colori originali)
 function generateCGAColors() {
     return [
@@ -354,8 +368,45 @@ function importDrawing(event) {
                 return;
             }
 
+            // Valida la dimensione della griglia: deve essere una di quelle
+            // supportate dall'app, altrimenti si rischia di disegnare una
+            // griglia enorme (o vuota) e di bloccare la pagina
+            const newGridSize = Number(importData.gridSize);
+            if (!VALID_GRID_SIZES.includes(newGridSize)) {
+                alert(
+                    `Dimensione griglia non valida nel file (${importData.gridSize}). Valori ammessi: ${VALID_GRID_SIZES.join(", ")}.`
+                );
+                return;
+            }
+
+            // Valida la palette, se presente
+            if (importData.palette && !VALID_PALETTES.includes(importData.palette)) {
+                alert(`Palette non valida nel file (${importData.palette}).`);
+                return;
+            }
+
+            // Filtra i pixel: tengo solo coordinate intere dentro la griglia
+            // e colori in formato "rgb(r,g,b)" valido, scartando in
+            // silenzio eventuali voci malformate invece di disegnarle o
+            // andare in errore
+            const coordPattern = /^(\d+),(\d+)$/;
+            const validPixels = {};
+            for (const key in importData.pixels) {
+                const match = coordPattern.exec(key);
+                if (!match) continue;
+
+                const x = Number(match[1]);
+                const y = Number(match[2]);
+                if (x >= newGridSize || y >= newGridSize) continue;
+
+                const color = importData.pixels[key];
+                if (!isValidRGBColor(color)) continue;
+
+                validPixels[key] = color;
+            }
+
             // Ripristina la dimensione della griglia
-            gridSize = importData.gridSize;
+            gridSize = newGridSize;
             pixelSize = canvas.width / gridSize;
             document.getElementById("gridSizeSelect").value = gridSize;
 
@@ -369,14 +420,20 @@ function importDrawing(event) {
             // Pulisci il canvas
             clearCanvas();
 
-            // Ridisegna i pixel
-            pixels = importData.pixels;
+            // Ridisegna i pixel validati
+            pixels = validPixels;
             for (let key in pixels) {
                 const [x, y] = key.split(",").map(Number);
                 drawPixel(x, y, pixels[key]);
             }
 
-            alert("Disegno importato con successo!");
+            const skippedCount =
+                Object.keys(importData.pixels).length - Object.keys(validPixels).length;
+            alert(
+                skippedCount > 0
+                    ? `Disegno importato con successo (${skippedCount} pixel non validi ignorati).`
+                    : "Disegno importato con successo!"
+            );
         } catch (error) {
             alert(
                 "Errore durante l'importazione del file. Assicurati che sia un file JSON valido."
