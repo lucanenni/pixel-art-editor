@@ -70,6 +70,7 @@ History of the pixel art editor's features, in chronological order.
 
 - **Bug fix**: the eyedropper was fully implemented in `script.js` (and documented) since v1.6, but its toggle control was never actually in `index.html` — there was no way to turn it on from the UI. Replaced the missing checkbox with a `#toolSelect` dropdown ("Pennello" / "Contagocce"), matching the existing grid-size/palette select pattern, and wired it to the existing eyedropper logic (now driven by a `currentTool` variable instead of a boolean flag). Removed the now-unused `.tool-option` checkbox CSS that had been sitting dead in `style.css`.
 - **Bucket fill**: new "Secchiello" option in the tool selector. Flood-fills the contiguous, same-colored area under the click (including the undrawn background) with the selected color. One click = one undo step; clicking an area that's already the target color is a no-op and doesn't waste an undo entry.
+- **Touch support**: drawing (brush, eyedropper, bucket, undo/redo history) now works on touchscreens, not just with a mouse — `touchstart`/`touchmove`/`touchend`/`touchcancel` mirror the existing mouse handlers, and `touch-action: none` plus `preventDefault()` stop the page from scrolling/zooming while drawing.
 
 ## Known issues
 
