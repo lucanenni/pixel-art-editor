@@ -13,7 +13,7 @@ Built as a teaching tool for vocational school students (graphic design and IT t
   - **CGA** — 16 colors
   - **EGA** — 64 colors (4 levels per RGB channel)
   - **VGA** — 256 colors (16 CGA + 16 grayscale + 216 web-safe colors); loaded by default
-- **Freehand drawing** — click or click-and-drag across the canvas
+- **Freehand drawing** — click or click-and-drag across the canvas, with mouse or touch (tablets/touchscreens)
 - **Eyedropper** — pick a color straight from an already-drawn pixel
 - **Export**
   - as a **PNG** image (`Scarica immagine`)

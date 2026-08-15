@@ -46,7 +46,9 @@ Three generator functions, each returning an array of `rgb(r,g,b)` strings:
   - `"bucket"`: calls `floodFill()` once per click (ignores `mousemove`, so dragging with the bucket selected doesn't repeatedly fill)
   - `"brush"` (default): draws normally (only while `isDrawing`, or on a `click` event)
 
-Events registered on the canvas: `mousedown` (sets `isDrawing = true` and draws), `mousemove`, `mouseup`/`mouseleave` (`isDrawing = false`), `click` (for a single tap/click without dragging).
+Events registered on the canvas: `mousedown` (sets `isDrawing = true` and draws, via the shared `startStroke()`), `mousemove`, `mouseup`/`mouseleave` (`isDrawing = false`), `click` (for a single tap/click without dragging). `getPixelCoords(e)` reads `e.clientX`/`e.clientY` directly.
+
+**Touch support**: `touchstart`/`touchmove`/`touchend`/`touchcancel` mirror the mouse events (`touchstart` calls the same `startStroke()` as `mousedown`), registered with `{ passive: false }` so `e.preventDefault()` can stop the page from scrolling/zooming while drawing — reinforced by `touch-action: none` on `#pixelCanvas` in `style.css`. `getPixelCoords(e)` transparently supports both: touch events carry coordinates in `e.touches[0]` instead of directly on `e`, so it reads from `e.touches[0]` when present, falling back to `e` for mouse events.
 
 ## Grid size / palette changes
 

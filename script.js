@@ -214,8 +214,12 @@ function getPixelCoords(e) {
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
-    const x = Math.floor(((e.clientX - rect.left) * scaleX) / pixelSize);
-    const y = Math.floor(((e.clientY - rect.top) * scaleY) / pixelSize);
+    // Gli eventi touch espongono le coordinate dentro e.touches[0] invece
+    // che direttamente su e.clientX/e.clientY come i mouse event
+    const point = e.touches && e.touches.length > 0 ? e.touches[0] : e;
+
+    const x = Math.floor(((point.clientX - rect.left) * scaleX) / pixelSize);
+    const y = Math.floor(((point.clientY - rect.top) * scaleY) / pixelSize);
 
     return { x, y };
 }
@@ -279,7 +283,7 @@ function handleDraw(e) {
     // trascinamento (altrimenti si rischia di riempire più zone di seguito
     // senza che l'utente lo intenda)
     if (currentTool === "bucket") {
-        if (e.type === "mousemove") return;
+        if (e.type === "mousemove" || e.type === "touchmove") return;
         floodFill(x, y, currentColor);
         return;
     }
@@ -289,7 +293,8 @@ function handleDraw(e) {
     drawPixel(x, y, currentColor);
 }
 
-canvas.addEventListener("mousedown", (e) => {
+// Inizio di un tratto di disegno, condiviso tra mouse e touch
+function startStroke(e) {
     isDrawing = true;
     // Un intero tratto (drag) è un solo passo di undo: salvo lo stato solo
     // all'inizio del tratto, non ad ogni pixel disegnato durante il drag.
@@ -298,12 +303,37 @@ canvas.addEventListener("mousedown", (e) => {
     // davvero qualcosa), quindi qui non salvano nulla.
     if (currentTool === "brush") pushUndoState();
     handleDraw(e);
-});
+}
 
+canvas.addEventListener("mousedown", startStroke);
 canvas.addEventListener("mousemove", handleDraw);
 canvas.addEventListener("mouseup", () => (isDrawing = false));
 canvas.addEventListener("mouseleave", () => (isDrawing = false));
 canvas.addEventListener("click", handleDraw);
+
+// Equivalenti touch (tablet/smartphone), stessa logica dei corrispondenti
+// eventi mouse. { passive: false } + preventDefault() servono per evitare
+// che il dito che disegna faccia anche scorrere/zoomare la pagina.
+canvas.addEventListener(
+    "touchstart",
+    (e) => {
+        e.preventDefault();
+        startStroke(e);
+    },
+    { passive: false }
+);
+
+canvas.addEventListener(
+    "touchmove",
+    (e) => {
+        e.preventDefault();
+        handleDraw(e);
+    },
+    { passive: false }
+);
+
+canvas.addEventListener("touchend", () => (isDrawing = false));
+canvas.addEventListener("touchcancel", () => (isDrawing = false));
 
 document.addEventListener("keydown", (e) => {
     const ctrlOrCmd = e.ctrlKey || e.metaKey;

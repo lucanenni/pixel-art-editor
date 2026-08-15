@@ -48,6 +48,8 @@ h1 {
     border: 3px solid #333;
     cursor: crosshair;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    /* Evita che un dito che disegna faccia anche scorrere/zoomare la pagina */
+    touch-action: none;
 }
 
 .right-panel {
