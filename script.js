@@ -7,7 +7,8 @@ let currentColor = "#000000";
 let isDrawing = false;
 let pixels = {};
 let currentPalette = "vga";
-let eyedropperMode = false;
+// Strumento attivo: 'brush' (pennello, default) | 'eyedropper' (contagocce)
+let currentTool = "brush";
 
 // Valori ammessi per griglia e palette, usati per validare i file importati
 const VALID_GRID_SIZES = [8, 12, 16, 24, 32];
@@ -235,18 +236,18 @@ function handleDraw(e) {
     if (x < 0 || x >= gridSize || y < 0 || y >= gridSize) return;
 
     // Modalità contagocce
-    if (eyedropperMode) {
+    if (currentTool === "eyedropper") {
         const pixelKey = `${x},${y}`;
         if (pixels[pixelKey]) {
             selectColor(pixels[pixelKey]);
-            document.getElementById("eyedropperMode").checked = false;
-            eyedropperMode = false;
-            canvas.style.cursor = "crosshair";
+            // Dopo aver prelevato un colore si torna al pennello, pronti a
+            // disegnare con quel colore
+            setTool("brush");
         }
         return;
     }
 
-    // Modalità disegno normale
+    // Modalità disegno normale (pennello)
     if (!isDrawing && e.type !== "click") return;
     drawPixel(x, y, currentColor);
 }
@@ -255,8 +256,9 @@ canvas.addEventListener("mousedown", (e) => {
     isDrawing = true;
     // Un intero tratto (drag) è un solo passo di undo: salvo lo stato solo
     // all'inizio del tratto, non ad ogni pixel disegnato durante il drag.
-    // In modalità contagocce non si disegna, quindi non salvo nulla.
-    if (!eyedropperMode) pushUndoState();
+    // Gli altri strumenti (contagocce, ...) non disegnano qui, quindi non
+    // salvano nulla in questo punto.
+    if (currentTool === "brush") pushUndoState();
     handleDraw(e);
 });
 
@@ -312,9 +314,17 @@ function downloadImage() {
     link.click();
 }
 
-function toggleEyedropper() {
-    eyedropperMode = document.getElementById("eyedropperMode").checked;
-    canvas.style.cursor = eyedropperMode ? "pointer" : "crosshair";
+// Cambia strumento a partire dal valore scelto in #toolSelect
+function changeTool() {
+    setTool(document.getElementById("toolSelect").value);
+}
+
+// Cambia strumento programmaticamente (es. dal contagocce torna al pennello
+// dopo aver prelevato un colore), tenendo sincronizzati select e cursore
+function setTool(tool) {
+    currentTool = tool;
+    document.getElementById("toolSelect").value = tool;
+    canvas.style.cursor = tool === "eyedropper" ? "pointer" : "crosshair";
 }
 
 // Capienza pratica di un QR code affidabile da scansionare: oltre questa

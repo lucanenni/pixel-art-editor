@@ -15,7 +15,7 @@ Defined at the top of `script.js`:
 | `isDrawing` | boolean | true while the mouse is held down, for drag-drawing |
 | `pixels` | object | map `"x,y" -> color` of every drawn pixel |
 | `currentPalette` | string | `'cga'` \| `'ega'` \| `'vga'` — starts as `'vga'` |
-| `eyedropperMode` | boolean | true while eyedropper mode is active |
+| `currentTool` | string | `'brush'` (default) \| `'eyedropper'` — active drawing tool, driven by `#toolSelect` |
 | `undoStack`, `redoStack` | array | stacks of `pixels` snapshots for undo/redo, capped at `MAX_HISTORY` (50) entries |
 
 **Note**: `pixels` is the source of truth for the drawing. The canvas is only its visual representation; redrawing from `pixels` (see `importDrawing`) is the correct way to restore a state.
@@ -41,7 +41,7 @@ Three generator functions, each returning an array of `rgb(r,g,b)` strings:
 - `getPixelCoords(e)` — converts mouse (client) coordinates into grid cell coordinates, accounting for the scaling between the canvas' CSS size and its real size (`scaleX`/`scaleY`)
 - `drawPixel(x, y, color)` — draws the colored rectangle (with a 1px margin so the grid underneath stays visible) and updates `pixels[x,y]`
 - `handleDraw(e)` — single handler for `mousedown`/`mousemove`/`click`:
-  - if `eyedropperMode` is active: reads the color from `pixels`, sets it as `currentColor`, and turns the mode off
+  - if `currentTool === "eyedropper"`: reads the color from `pixels`, sets it as `currentColor`, and switches back to `"brush"` via `setTool()`
   - otherwise: draws normally (only while `isDrawing`, or on a `click` event)
 
 Events registered on the canvas: `mousedown` (sets `isDrawing = true` and draws), `mousemove`, `mouseup`/`mouseleave` (`isDrawing = false`), `click` (for a single tap/click without dragging).
@@ -62,17 +62,22 @@ Events registered on the canvas: `mousedown` (sets `isDrawing = true` and draws)
 - `clearHistory()` — empties both stacks; called whenever the grid size changes (manually via `changeGridSize()`, or implicitly via a same-session `importDrawing()`/`loadSharedDrawingFromURL()` that sets a different `gridSize`), since older snapshots' `"x,y"` keys wouldn't be meaningful against a different grid
 
 `pushUndoState()` call sites — each represents one undoable action:
-- `mousedown` on the canvas, once per stroke (not per `drawPixel()` call during a drag) — skipped while `eyedropperMode` is active, since that doesn't mutate `pixels`
+- `mousedown` on the canvas, once per stroke (not per `drawPixel()` call during a drag) — only while `currentTool === "brush"`, since other tools don't mutate `pixels` from this handler
 - `clearAll()` (bound to the "Cancella tutto" button; the raw `clearCanvas()` is still used internally, without pushing history, by `changeGridSize()`, `restorePixels()`, and `importDrawing()`)
 - `importDrawing()`, only when the imported `gridSize` matches the current one (otherwise `clearHistory()` runs instead, see above)
 
 Keyboard shortcuts: `Ctrl+Z` (or `Cmd+Z` on Mac) for undo, `Ctrl+Y` or `Ctrl+Shift+Z` for redo, handled by a `keydown` listener on `document`.
 
-## Eyedropper
+## Tools (brush / eyedropper)
 
-- `#eyedropperMode` checkbox with `onchange="toggleEyedropper()"`
-- `toggleEyedropper()` updates the flag and the canvas cursor (`pointer` vs `crosshair`)
-- Color reading happens inside `handleDraw()` rather than a separate handler, to reuse the same coordinate-conversion logic
+- `#toolSelect` — a `<select>` (same pattern as grid size / palette) listing the available tools; `onchange="changeTool()"`
+- `changeTool()` reads `#toolSelect`'s value and calls `setTool()`
+- `setTool(tool)` sets `currentTool`, syncs `#toolSelect`'s displayed value (so code can switch tools programmatically, e.g. after an eyedropper pick), and updates the canvas cursor (`pointer` for eyedropper, `crosshair` otherwise)
+- Eyedropper color reading happens inside `handleDraw()` rather than a separate handler, to reuse the same coordinate-conversion logic; picking a color calls `setTool("brush")` to switch back automatically
+
+⚠️ Historical bug (fixed in v1.2.0): the eyedropper's own toggle markup was missing from `index.html` entirely — the feature was fully implemented in `script.js` and documented, but had no UI element to reach it. If you add a new tool, always check it's actually wired into `index.html`, not just implemented in JS.
+
+This is a small scaffold meant to grow: adding another tool (e.g. bucket fill) means adding an `<option>` to `#toolSelect` and a branch in `handleDraw()`/`mousedown`, without touching the rest.
 
 ## Image export
 
