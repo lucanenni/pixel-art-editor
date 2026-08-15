@@ -22,6 +22,7 @@ Built as a teaching tool for vocational school students (graphic design and IT t
 - **QR code sharing** (`Mostra QR code`) — generates a QR code encoding the drawing itself; scanning it reopens the app with the drawing restored and automatically downloads it as a PNG
 - **Bucket fill** — switch **Strumento** to **Secchiello** and click to flood-fill a contiguous same-colored area (including the blank background) with the selected color
 - **Undo/redo** (`Annulla`/`Ripeti`, or Ctrl+Z / Ctrl+Y) — steps back and forward through drawing actions
+- **Autosave** — the drawing (grid, palette, pixels) is saved to `localStorage` after every action and restored automatically next time you open the app in the same browser
 - **Clear canvas** (`Cancella tutto`)
 
 ## Getting started
@@ -52,6 +53,7 @@ Then visit `http://localhost:8000`.
 6. Use **Mostra QR code** to generate a QR code for the current drawing — scanning it (or opening the underlying URL) reopens the app with the drawing restored and downloads it as a PNG automatically. Very large/detailed drawings may exceed the data capacity of a QR code; in that case a metadata-only code is shown instead, with a message suggesting a smaller grid or `Esporta JSON`.
 7. Use **Annulla**/**Ripeti** (or Ctrl+Z / Ctrl+Y) to undo/redo drawing actions — one step per stroke, clear, or same-size import. Changing the grid size (or importing a drawing with a different size) resets the undo history.
 8. **Cancella tutto** wipes the canvas back to blank.
+9. The drawing autosaves as you work — reopening the app (same browser, same device) picks up right where you left off. Opening a shared QR code link takes priority over the autosave for that load.
 
 ### JSON export format
 
@@ -86,16 +88,16 @@ Then visit `http://localhost:8000`.
 - `pixels` (an object keyed `"x,y"` → CSS color string) is the single source of truth for the drawing; the canvas is just its visual rendering. Anything that needs to restore a drawing (import, future features) should redraw from `pixels`, following the pattern already used in `importDrawing`.
 - The canvas has a fixed 512×512px size; `pixelSize` (the on-screen size of one grid cell) is recalculated as `canvas.width / gridSize` whenever the grid size changes.
 - Adding a new palette only requires a new `generateXColors()` function, a `case` in `generateColors()`'s switch, and a new `<option>` in `#paletteSelect`. Adding a new grid size only requires a new `<option>` in `#gridSizeSelect` — no other code changes needed.
-- No `localStorage`/`sessionStorage` is used (a deliberate limitation of the environment the project was originally prototyped in); worth revisiting if the project moves elsewhere.
+- The drawing is persisted to `localStorage` (see Autosave above) under a single fixed key; nothing else in the app uses browser storage.
 
 ## Known limitations
 
 - **QR code sharing** encodes the drawing's data (grid size, palette, pixels) in the URL, not the image itself — very large or highly detailed drawings can still exceed a QR code's data capacity, in which case a metadata-only code is generated (see above). This is an inherent limit of QR codes, not something a client-only app can fix.
 - **Undo/redo history is reset on grid size changes** (including importing a drawing with a different size), since saved snapshots' coordinates wouldn't be meaningful against a different grid.
+- **Autosave is per-browser, not synced anywhere**: it uses `localStorage`, so it doesn't follow you to a different browser or device, and is lost if the browser's site data is cleared.
 
 ## Possible future improvements
 
-- Auto-save via `localStorage`/`sessionStorage`
 - XML import/export alongside JSON
 
 ## License

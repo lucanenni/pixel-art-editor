@@ -106,11 +106,12 @@ This is a small scaffold meant to grow: adding another tool means adding an `<op
 1. reads the file with `FileReader`
 2. validates that `pixels` and `gridSize` are present
 3. validates `gridSize` against `VALID_GRID_SIZES` and, if present, `palette` against `VALID_PALETTES` — rejects the import with an `alert` otherwise (this guards against e.g. a corrupted/hand-edited file with a huge `gridSize` hanging the tab while rendering the grid)
-4. filters `pixels`: keeps only entries whose key matches `"x,y"` inside `[0, gridSize)` and whose value matches `RGB_COLOR_PATTERN` (`isValidRGBColor`); anything else is dropped silently, and the final alert reports how many entries were skipped
+4. filters `pixels` via `filterValidPixels(rawPixels, gridSize)`: keeps only entries whose key matches `"x,y"` inside `[0, gridSize)` and whose value matches `RGB_COLOR_PATTERN` (`isValidRGBColor`); anything else is dropped silently, and the final alert reports how many entries were skipped. This helper is shared with the QR-code loader and the autosave restore below, so all three untrusted-data entry points get the same hardening.
 5. calls `clearHistory()` if the imported `gridSize` differs from the current one, otherwise `pushUndoState()` (see "Undo / redo" above)
 6. restores `gridSize`, `pixelSize`, and the UI select
 7. if present, restores `palette` and calls `initColorPalette()`
 8. calls `clearCanvas()` then redraws every pixel from the filtered `pixels` with `drawPixel()`
+9. calls `saveState()` (see "Autosave" below)
 
 ## QR code
 
@@ -126,13 +127,21 @@ The QR code does **not** contain the PNG image (too large for a QR code's capaci
 3. if the resulting URL exceeds `QR_URL_LENGTH_LIMIT` (~2000 characters — the practical reliability limit for scanning), it generates a QR code with text metadata only (no working URL) instead, and warns the user via `#qrMessage`
 4. otherwise it generates a QR code with the full URL, using the `QRCode` library (CDN)
 
-On page load, `loadSharedDrawingFromURL()` checks for a `?data=` query parameter: if present, it decodes it, calls `clearHistory()` (a freshly loaded drawing has no undo history), restores the state (grid/palette/pixels), redraws it, and after a short `setTimeout` (to let the render complete) automatically calls `downloadImage()`, then cleans up the URL with `history.replaceState` to avoid repeated downloads on a page refresh.
+On page load, `loadSharedDrawingFromURL()` checks for a `?data=` query parameter: if present, it decodes it, validates `g`/`p`/`d` the same way `importDrawing()` does (`VALID_GRID_SIZES`, `VALID_PALETTES`, `filterValidPixels()` — the URL is just as untrusted as a hand-edited import file), calls `clearHistory()` (a freshly loaded drawing has no undo history), restores the state (grid/palette/pixels), redraws it, calls `saveState()`, and after a short `setTimeout` (to let the render complete) automatically calls `downloadImage()`, then cleans up the URL with `history.replaceState` to avoid repeated downloads on a page refresh. It returns `true` if it actually loaded something, `false` otherwise (no `?data=`, or invalid data) — the startup sequence uses this to decide whether to fall back to the autosave (see below).
 
 **Known limitation**: a standard QR code's capacity is limited; drawings with many colored pixels (especially on large grids) can exceed the threshold and fall back to the "metadata only" case. There is currently no fallback that still loads the drawing in that case — the user is pointed to `Esporta JSON` instead.
 
+## Autosave
+
+The drawing persists across page loads via `localStorage`, under a single fixed key `AUTOSAVE_KEY` (`"pixelArtEditorAutosave"`):
+
+- `saveState()` writes `{ version, gridSize, palette: currentPalette, pixels }` as JSON. Wrapped in `try`/`catch`: `localStorage` can be unavailable (private browsing, quota exceeded, storage disabled) and this must never break a user action — it just `console.warn`s and moves on.
+- `loadAutosavedState()` is the mirror of `importDrawing()`'s restore logic (same `VALID_GRID_SIZES`/`VALID_PALETTES`/`filterValidPixels()` validation), reading from `localStorage` instead of a file. Returns `true`/`false` depending on whether it actually restored something.
+- Called once at startup, but **only if `loadSharedDrawingFromURL()` returned `false`** — an opened QR share link always wins over the autosave for that page load, and its state is then saved as the new autosave.
+- Called after every mutating action: end of a brush stroke (`endStroke()`, shared by mouse and touch), `floodFill()`, `clearAll()`, `changeGridSize()`, `changePalette()`, `undo()`/`redo()`, and a successful `importDrawing()`. Each of these already has its own natural "one action" boundary (see "Undo / redo" above for the equivalent reasoning on stroke grouping), so this doesn't mean one write per pixel.
+
 ## Points of attention for future changes
 
-- **No `localStorage`/`sessionStorage`** is used, deliberately (a limitation of the environment the project was originally prototyped in); worth reconsidering if the project moves elsewhere
 - To add a new palette format, add a `generateXColors()` function and a case in `generateColors()`'s switch, plus the option in `<select id="paletteSelect">`
 - To add a new grid size, add the option in `<select id="gridSizeSelect">` — no other change is required, the logic is generic
 - Any function that redraws from `pixels` should iterate with `Object.keys(pixels)` and do `key.split(',').map(Number)` to get `x, y` — the pattern already used in `importDrawing`, reuse it for consistency
