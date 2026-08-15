@@ -231,6 +231,34 @@ function drawPixel(x, y, color) {
     pixels[`${x},${y}`] = color;
 }
 
+// Riempimento a secchiello: colora tutte le celle adiacenti (su/giù/sx/dx)
+// che condividono lo stesso colore della cella di partenza. Una cella mai
+// disegnata conta come colore "vuoto" (null), così il secchiello riesce a
+// riempire anche lo sfondo bianco.
+function floodFill(startX, startY, fillColor) {
+    const targetColor = pixels[`${startX},${startY}`] || null;
+    if (targetColor === fillColor) return; // nessun cambiamento da fare
+
+    // Un intero riempimento è un solo passo di undo
+    pushUndoState();
+
+    const stack = [[startX, startY]];
+    const visited = new Set();
+
+    while (stack.length > 0) {
+        const [x, y] = stack.pop();
+        const key = `${x},${y}`;
+        if (visited.has(key)) continue;
+        if (x < 0 || x >= gridSize || y < 0 || y >= gridSize) continue;
+        if ((pixels[key] || null) !== targetColor) continue;
+
+        visited.add(key);
+        drawPixel(x, y, fillColor);
+
+        stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+    }
+}
+
 function handleDraw(e) {
     const { x, y } = getPixelCoords(e);
     if (x < 0 || x >= gridSize || y < 0 || y >= gridSize) return;
@@ -247,6 +275,15 @@ function handleDraw(e) {
         return;
     }
 
+    // Modalità secchiello: un solo riempimento al click, non durante il
+    // trascinamento (altrimenti si rischia di riempire più zone di seguito
+    // senza che l'utente lo intenda)
+    if (currentTool === "bucket") {
+        if (e.type === "mousemove") return;
+        floodFill(x, y, currentColor);
+        return;
+    }
+
     // Modalità disegno normale (pennello)
     if (!isDrawing && e.type !== "click") return;
     drawPixel(x, y, currentColor);
@@ -256,8 +293,9 @@ canvas.addEventListener("mousedown", (e) => {
     isDrawing = true;
     // Un intero tratto (drag) è un solo passo di undo: salvo lo stato solo
     // all'inizio del tratto, non ad ogni pixel disegnato durante il drag.
-    // Gli altri strumenti (contagocce, ...) non disegnano qui, quindi non
-    // salvano nulla in questo punto.
+    // Gli altri strumenti (contagocce, secchiello) gestiscono il proprio
+    // undo per conto loro (il secchiello solo se il riempimento cambia
+    // davvero qualcosa), quindi qui non salvano nulla.
     if (currentTool === "brush") pushUndoState();
     handleDraw(e);
 });
@@ -321,10 +359,16 @@ function changeTool() {
 
 // Cambia strumento programmaticamente (es. dal contagocce torna al pennello
 // dopo aver prelevato un colore), tenendo sincronizzati select e cursore
+const TOOL_CURSORS = {
+    brush: "crosshair",
+    eyedropper: "pointer",
+    bucket: "cell",
+};
+
 function setTool(tool) {
     currentTool = tool;
     document.getElementById("toolSelect").value = tool;
-    canvas.style.cursor = tool === "eyedropper" ? "pointer" : "crosshair";
+    canvas.style.cursor = TOOL_CURSORS[tool] || "crosshair";
 }
 
 // Capienza pratica di un QR code affidabile da scansionare: oltre questa

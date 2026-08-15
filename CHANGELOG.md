@@ -66,9 +66,10 @@ History of the pixel art editor's features, in chronological order.
 - Each `pixels` entry is now validated individually: the key must be a well-formed `"x,y"` pair inside the grid, and the value must be a `rgb(r,g,b)` string with components ≤ 255; anything else (malformed coordinates, out-of-grid pixels, non-color strings) is silently dropped instead of being drawn or crashing the import
 - The import success message now reports how many pixels were skipped, if any
 
-## v1.2.0 - Fix unreachable eyedropper
+## v1.2.0 - Fix unreachable eyedropper, add bucket fill
 
 - **Bug fix**: the eyedropper was fully implemented in `script.js` (and documented) since v1.6, but its toggle control was never actually in `index.html` — there was no way to turn it on from the UI. Replaced the missing checkbox with a `#toolSelect` dropdown ("Pennello" / "Contagocce"), matching the existing grid-size/palette select pattern, and wired it to the existing eyedropper logic (now driven by a `currentTool` variable instead of a boolean flag). Removed the now-unused `.tool-option` checkbox CSS that had been sitting dead in `style.css`.
+- **Bucket fill**: new "Secchiello" option in the tool selector. Flood-fills the contiguous, same-colored area under the click (including the undrawn background) with the selected color. One click = one undo step; clicking an area that's already the target color is a no-op and doesn't waste an undo entry.
 
 ## Known issues
 
