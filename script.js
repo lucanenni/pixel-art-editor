@@ -631,6 +631,71 @@ function exportDrawing() {
     link.click();
 }
 
+// Rende sicura una stringa da inserire in un valore di attributo XML
+function escapeXMLAttribute(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+// Stesso disegno dell'export JSON, in un formato XML equivalente:
+// <pixelArt gridSize="..." palette="..."><pixels><pixel x="" y="" color=""/>...
+function exportDrawingXML() {
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    xml += `<pixelArt version="1.0" gridSize="${gridSize}" palette="${currentPalette}" timestamp="${new Date().toISOString()}">\n`;
+    xml += "  <pixels>\n";
+    for (const key in pixels) {
+        const [x, y] = key.split(",").map(Number);
+        xml += `    <pixel x="${x}" y="${y}" color="${escapeXMLAttribute(pixels[key])}" />\n`;
+    }
+    xml += "  </pixels>\n";
+    xml += "</pixelArt>\n";
+
+    const dataBlob = new Blob([xml], { type: "application/xml" });
+
+    const link = document.createElement("a");
+    link.download = "pixel-art-export.xml";
+    link.href = URL.createObjectURL(dataBlob);
+    link.click();
+}
+
+// Applica uno stato di disegno già validato (griglia, palette, pixel) e lo
+// rende quello corrente: gestisce cronologia undo, ridisegno del canvas e
+// autosalvataggio. Riusata da import JSON e import XML, che si occupano solo
+// di leggere e validare il proprio formato prima di richiamarla.
+function applyImportedDrawing(newGridSize, palette, validPixels) {
+    // Se la griglia cambia, le istantanee salvate finora non hanno più senso
+    // (vedi changeGridSize); altrimenti l'import diventa un normale passo
+    // annullabile con undo
+    if (newGridSize !== gridSize) {
+        clearHistory();
+    } else {
+        pushUndoState();
+    }
+
+    gridSize = newGridSize;
+    pixelSize = canvas.width / gridSize;
+    document.getElementById("gridSizeSelect").value = gridSize;
+
+    if (palette) {
+        currentPalette = palette;
+        document.getElementById("paletteSelect").value = currentPalette;
+        initColorPalette();
+    }
+
+    clearCanvas();
+
+    pixels = validPixels;
+    for (const key in pixels) {
+        const [x, y] = key.split(",").map(Number);
+        drawPixel(x, y, pixels[key]);
+    }
+
+    saveState();
+}
+
 function importDrawing(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -671,38 +736,7 @@ function importDrawing(event) {
             // andare in errore
             const validPixels = filterValidPixels(importData.pixels, newGridSize);
 
-            // Se la griglia cambia, le istantanee salvate finora non hanno
-            // più senso (vedi changeGridSize); altrimenti l'import diventa
-            // un normale passo annullabile con undo
-            if (newGridSize !== gridSize) {
-                clearHistory();
-            } else {
-                pushUndoState();
-            }
-
-            // Ripristina la dimensione della griglia
-            gridSize = newGridSize;
-            pixelSize = canvas.width / gridSize;
-            document.getElementById("gridSizeSelect").value = gridSize;
-
-            // Ripristina la palette se presente
-            if (importData.palette) {
-                currentPalette = importData.palette;
-                document.getElementById("paletteSelect").value = currentPalette;
-                initColorPalette();
-            }
-
-            // Pulisci il canvas
-            clearCanvas();
-
-            // Ridisegna i pixel validati
-            pixels = validPixels;
-            for (let key in pixels) {
-                const [x, y] = key.split(",").map(Number);
-                drawPixel(x, y, pixels[key]);
-            }
-
-            saveState();
+            applyImportedDrawing(newGridSize, importData.palette, validPixels);
 
             const skippedCount =
                 Object.keys(importData.pixels).length - Object.keys(validPixels).length;
@@ -714,6 +748,82 @@ function importDrawing(event) {
         } catch (error) {
             alert(
                 "Errore durante l'importazione del file. Assicurati che sia un file JSON valido."
+            );
+            console.error(error);
+        }
+    };
+
+    reader.readAsText(file);
+
+    // Reset dell'input file per permettere di importare lo stesso file più volte
+    event.target.value = "";
+}
+
+function importDrawingXML(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        try {
+            const xmlDoc = new DOMParser().parseFromString(e.target.result, "application/xml");
+
+            // DOMParser non lancia eccezioni su XML malformato: inserisce
+            // invece un nodo <parsererror> nel documento risultante
+            if (xmlDoc.querySelector("parsererror")) {
+                alert("File XML non valido o mal formato.");
+                return;
+            }
+
+            const root = xmlDoc.querySelector("pixelArt");
+            if (!root) {
+                alert(
+                    "File non valido. Il file deve essere un export XML generato da questa applicazione."
+                );
+                return;
+            }
+
+            const gridSizeAttr = root.getAttribute("gridSize");
+            const newGridSize = Number(gridSizeAttr);
+            if (!VALID_GRID_SIZES.includes(newGridSize)) {
+                alert(
+                    `Dimensione griglia non valida nel file (${gridSizeAttr}). Valori ammessi: ${VALID_GRID_SIZES.join(", ")}.`
+                );
+                return;
+            }
+
+            const palette = root.getAttribute("palette");
+            if (palette && !VALID_PALETTES.includes(palette)) {
+                alert(`Palette non valida nel file (${palette}).`);
+                return;
+            }
+
+            // Costruisco un oggetto pixels grezzo dai nodi <pixel x="" y=""
+            // color="" />, poi lo filtro con la stessa validazione dell'import
+            // JSON (coordinate dentro la griglia, colore rgb(...) valido)
+            const rawPixels = {};
+            const pixelNodes = root.querySelectorAll("pixel");
+            pixelNodes.forEach((node) => {
+                const x = node.getAttribute("x");
+                const y = node.getAttribute("y");
+                const color = node.getAttribute("color");
+                if (x === null || y === null || color === null) return;
+                rawPixels[`${x},${y}`] = color;
+            });
+
+            const validPixels = filterValidPixels(rawPixels, newGridSize);
+
+            applyImportedDrawing(newGridSize, palette, validPixels);
+
+            const skippedCount = pixelNodes.length - Object.keys(validPixels).length;
+            alert(
+                skippedCount > 0
+                    ? `Disegno importato con successo (${skippedCount} pixel non validi ignorati).`
+                    : "Disegno importato con successo!"
+            );
+        } catch (error) {
+            alert(
+                "Errore durante l'importazione del file. Assicurati che sia un file XML valido."
             );
             console.error(error);
         }

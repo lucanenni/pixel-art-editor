@@ -38,6 +38,15 @@
             >
               Importa JSON
             </button>
+            <button class="btn-export" onclick="exportDrawingXML()">
+              Esporta XML
+            </button>
+            <button
+              class="btn-import"
+              onclick="document.getElementById('importFileXML').click()"
+            >
+              Importa XML
+            </button>
           </div>
           <input
             type="file"
@@ -45,6 +54,13 @@
             accept=".json"
             style="display: none"
             onchange="importDrawing(event)"
+          />
+          <input
+            type="file"
+            id="importFileXML"
+            accept=".xml"
+            style="display: none"
+            onchange="importDrawingXML(event)"
           />
         </div>
 

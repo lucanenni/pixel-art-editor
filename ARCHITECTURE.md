@@ -106,12 +106,30 @@ This is a small scaffold meant to grow: adding another tool means adding an `<op
 1. reads the file with `FileReader`
 2. validates that `pixels` and `gridSize` are present
 3. validates `gridSize` against `VALID_GRID_SIZES` and, if present, `palette` against `VALID_PALETTES` — rejects the import with an `alert` otherwise (this guards against e.g. a corrupted/hand-edited file with a huge `gridSize` hanging the tab while rendering the grid)
-4. filters `pixels` via `filterValidPixels(rawPixels, gridSize)`: keeps only entries whose key matches `"x,y"` inside `[0, gridSize)` and whose value matches `RGB_COLOR_PATTERN` (`isValidRGBColor`); anything else is dropped silently, and the final alert reports how many entries were skipped. This helper is shared with the QR-code loader and the autosave restore below, so all three untrusted-data entry points get the same hardening.
-5. calls `clearHistory()` if the imported `gridSize` differs from the current one, otherwise `pushUndoState()` (see "Undo / redo" above)
-6. restores `gridSize`, `pixelSize`, and the UI select
-7. if present, restores `palette` and calls `initColorPalette()`
-8. calls `clearCanvas()` then redraws every pixel from the filtered `pixels` with `drawPixel()`
-9. calls `saveState()` (see "Autosave" below)
+4. filters `pixels` via `filterValidPixels(rawPixels, gridSize)`: keeps only entries whose key matches `"x,y"` inside `[0, gridSize)` and whose value matches `RGB_COLOR_PATTERN` (`isValidRGBColor`); anything else is dropped silently, and the final alert reports how many entries were skipped. This helper is shared with the QR-code loader, the XML import, and the autosave restore below, so all untrusted-data entry points get the same hardening.
+5. calls `applyImportedDrawing(newGridSize, importData.palette, validPixels)` — see below
+
+`applyImportedDrawing(newGridSize, palette, validPixels)`, shared by JSON and XML import:
+1. calls `clearHistory()` if `newGridSize` differs from the current `gridSize`, otherwise `pushUndoState()` (see "Undo / redo" above)
+2. restores `gridSize`, `pixelSize`, and the UI select
+3. if `palette` is given, restores it and calls `initColorPalette()`
+4. calls `clearCanvas()` then redraws every pixel from `validPixels` with `drawPixel()`
+5. calls `saveState()` (see "Autosave" below)
+
+### XML export / import
+
+Same data, alternate format — `exportDrawingXML()` builds an XML string by hand (not `DOMParser`/`XMLSerializer`, to keep it dead simple to read) with attribute values passed through `escapeXMLAttribute()`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<pixelArt version="1.0" gridSize="32" palette="vga" timestamp="...">
+  <pixels>
+    <pixel x="3" y="4" color="rgb(255,0,0)" />
+  </pixels>
+</pixelArt>
+```
+
+`importDrawingXML(event)` mirrors `importDrawing()`, but parses with `DOMParser` (checking for a `parsererror` node, since `DOMParser` doesn't throw on malformed XML) instead of `JSON.parse`, reads `gridSize`/`palette` from the `<pixelArt>` element's attributes, and builds the raw pixels object from every `<pixel x="" y="" color="" />` node before running it through the same `filterValidPixels()` and `applyImportedDrawing()` as the JSON path.
 
 ## QR code
 
