@@ -24,6 +24,30 @@ function isValidRGBColor(color) {
     return match.slice(1, 4).every((component) => Number(component) <= 255);
 }
 
+// Filtra un oggetto pixels grezzo (proveniente da un import JSON, da un QR
+// code o dall'autosalvataggio): tiene solo le voci con chiave "x,y" dentro
+// la griglia indicata e colore "rgb(r,g,b)" valido, scartando il resto in
+// silenzio. Riusata da tutti i punti che caricano un disegno da una fonte
+// esterna, per non fidarsi ciecamente dei dati.
+function filterValidPixels(rawPixels, forGridSize) {
+    const coordPattern = /^(\d+),(\d+)$/;
+    const validPixels = {};
+    for (const key in rawPixels) {
+        const match = coordPattern.exec(key);
+        if (!match) continue;
+
+        const x = Number(match[1]);
+        const y = Number(match[2]);
+        if (x >= forGridSize || y >= forGridSize) continue;
+
+        const color = rawPixels[key];
+        if (!isValidRGBColor(color)) continue;
+
+        validPixels[key] = color;
+    }
+    return validPixels;
+}
+
 // Cronologia per undo/redo: ogni voce è un'istantanea completa di `pixels`.
 // È legata alla gridSize corrente: cambiare griglia svuota la cronologia,
 // perché le coordinate salvate non avrebbero più senso con un'altra griglia.
@@ -71,6 +95,7 @@ function undo() {
     redoStack.push(snapshotPixels());
     restorePixels(undoStack.pop());
     updateUndoRedoButtons();
+    saveState();
 }
 
 function redo() {
@@ -78,6 +103,65 @@ function redo() {
     undoStack.push(snapshotPixels());
     restorePixels(redoStack.pop());
     updateUndoRedoButtons();
+    saveState();
+}
+
+// Salvataggio automatico in localStorage: chiave unica per l'app, disegno
+// completo (griglia, palette, pixel). È un extra di comodità, non deve mai
+// far fallire un'azione dell'utente se localStorage non è disponibile
+// (modalità privata, quota piena, ambienti senza storage, ...).
+const AUTOSAVE_KEY = "pixelArtEditorAutosave";
+
+function saveState() {
+    try {
+        localStorage.setItem(
+            AUTOSAVE_KEY,
+            JSON.stringify({ version: "1.0", gridSize, palette: currentPalette, pixels })
+        );
+    } catch (error) {
+        console.warn("Impossibile salvare automaticamente il disegno:", error);
+    }
+}
+
+// Ritorna true se ha effettivamente ripristinato un disegno salvato in
+// precedenza, false altrimenti (nessun salvataggio, dati non validi, o
+// localStorage non disponibile).
+function loadAutosavedState() {
+    let saved;
+    try {
+        const raw = localStorage.getItem(AUTOSAVE_KEY);
+        if (!raw) return false;
+        saved = JSON.parse(raw);
+    } catch (error) {
+        console.warn("Impossibile leggere il disegno salvato automaticamente:", error);
+        return false;
+    }
+
+    if (!saved || !saved.pixels) return false;
+
+    const newGridSize = Number(saved.gridSize);
+    if (!VALID_GRID_SIZES.includes(newGridSize)) return false;
+    if (saved.palette && !VALID_PALETTES.includes(saved.palette)) return false;
+
+    gridSize = newGridSize;
+    pixelSize = canvas.width / gridSize;
+    document.getElementById("gridSizeSelect").value = gridSize;
+
+    if (saved.palette) {
+        currentPalette = saved.palette;
+        document.getElementById("paletteSelect").value = currentPalette;
+        initColorPalette();
+    }
+
+    clearCanvas();
+
+    pixels = filterValidPixels(saved.pixels, gridSize);
+    for (const key in pixels) {
+        const [x, y] = key.split(",").map(Number);
+        drawPixel(x, y, pixels[key]);
+    }
+
+    return true;
 }
 
 // Palette CGA (16 colori originali)
@@ -261,6 +345,8 @@ function floodFill(startX, startY, fillColor) {
 
         stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
     }
+
+    saveState();
 }
 
 function handleDraw(e) {
@@ -305,10 +391,17 @@ function startStroke(e) {
     handleDraw(e);
 }
 
+// Fine di un tratto di disegno, condivisa tra mouse e touch: salva lo stato
+// (autosalvataggio) una volta per tratto, non ad ogni pixel disegnato
+function endStroke() {
+    isDrawing = false;
+    saveState();
+}
+
 canvas.addEventListener("mousedown", startStroke);
 canvas.addEventListener("mousemove", handleDraw);
-canvas.addEventListener("mouseup", () => (isDrawing = false));
-canvas.addEventListener("mouseleave", () => (isDrawing = false));
+canvas.addEventListener("mouseup", endStroke);
+canvas.addEventListener("mouseleave", endStroke);
 canvas.addEventListener("click", handleDraw);
 
 // Equivalenti touch (tablet/smartphone), stessa logica dei corrispondenti
@@ -332,8 +425,8 @@ canvas.addEventListener(
     { passive: false }
 );
 
-canvas.addEventListener("touchend", () => (isDrawing = false));
-canvas.addEventListener("touchcancel", () => (isDrawing = false));
+canvas.addEventListener("touchend", endStroke);
+canvas.addEventListener("touchcancel", endStroke);
 
 document.addEventListener("keydown", (e) => {
     const ctrlOrCmd = e.ctrlKey || e.metaKey;
@@ -359,6 +452,7 @@ function clearCanvas() {
 function clearAll() {
     if (Object.keys(pixels).length > 0) pushUndoState();
     clearCanvas();
+    saveState();
 }
 
 function changeGridSize() {
@@ -368,11 +462,13 @@ function changeGridSize() {
     // Le istantanee salvate finora hanno coordinate relative alla vecchia
     // griglia: non avrebbe senso riapplicarle con la nuova dimensione
     clearHistory();
+    saveState();
 }
 
 function changePalette() {
     currentPalette = document.getElementById("paletteSelect").value;
     initColorPalette();
+    saveState();
 }
 
 function downloadImage() {
@@ -459,19 +555,29 @@ function closeQRModal() {
 // Se la pagina è stata aperta scansionando un QR code (parametro ?data=
 // nella query string), ricostruisce il disegno codificato e ne avvia
 // automaticamente il download come immagine PNG.
+// Ritorna true se ha effettivamente caricato un disegno dall'URL, false
+// altrimenti (nessun parametro ?data=, o dati non validi) — usato
+// all'avvio per decidere se provare a ripristinare l'autosalvataggio.
 function loadSharedDrawingFromURL() {
     const params = new URLSearchParams(window.location.search);
     const data = params.get("data");
-    if (!data) return;
+    if (!data) return false;
 
     try {
         const compactData = JSON.parse(atob(decodeURIComponent(data)));
-        if (!compactData.d || !compactData.g) return;
+        if (!compactData.d || !compactData.g) return false;
+
+        // Gli stessi controlli usati per l'import JSON: i dati nell'URL
+        // potrebbero essere stati modificati a mano, non fidarsi ciecamente
+        const newGridSize = Number(compactData.g);
+        if (!VALID_GRID_SIZES.includes(newGridSize)) return false;
+        if (compactData.p && !VALID_PALETTES.includes(compactData.p)) return false;
+        const validPixels = filterValidPixels(compactData.d, newGridSize);
 
         // Disegno caricato da zero: nessuna cronologia precedente ha senso
         clearHistory();
 
-        gridSize = compactData.g;
+        gridSize = newGridSize;
         pixelSize = canvas.width / gridSize;
         document.getElementById("gridSizeSelect").value = gridSize;
 
@@ -483,11 +589,13 @@ function loadSharedDrawingFromURL() {
 
         clearCanvas();
 
-        pixels = compactData.d;
+        pixels = validPixels;
         for (const key in pixels) {
             const [x, y] = key.split(",").map(Number);
             drawPixel(x, y, pixels[key]);
         }
+
+        saveState();
 
         // Aspetta che il canvas sia renderizzato, poi scarica automaticamente
         // l'immagine e ripulisce l'URL per evitare download ripetuti a un
@@ -497,8 +605,11 @@ function loadSharedDrawingFromURL() {
             const cleanURL = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, cleanURL);
         }, 100);
+
+        return true;
     } catch (error) {
         console.error("Errore nel caricamento del disegno condiviso:", error);
+        return false;
     }
 }
 
@@ -558,21 +669,7 @@ function importDrawing(event) {
             // e colori in formato "rgb(r,g,b)" valido, scartando in
             // silenzio eventuali voci malformate invece di disegnarle o
             // andare in errore
-            const coordPattern = /^(\d+),(\d+)$/;
-            const validPixels = {};
-            for (const key in importData.pixels) {
-                const match = coordPattern.exec(key);
-                if (!match) continue;
-
-                const x = Number(match[1]);
-                const y = Number(match[2]);
-                if (x >= newGridSize || y >= newGridSize) continue;
-
-                const color = importData.pixels[key];
-                if (!isValidRGBColor(color)) continue;
-
-                validPixels[key] = color;
-            }
+            const validPixels = filterValidPixels(importData.pixels, newGridSize);
 
             // Se la griglia cambia, le istantanee salvate finora non hanno
             // più senso (vedi changeGridSize); altrimenti l'import diventa
@@ -605,6 +702,8 @@ function importDrawing(event) {
                 drawPixel(x, y, pixels[key]);
             }
 
+            saveState();
+
             const skippedCount =
                 Object.keys(importData.pixels).length - Object.keys(validPixels).length;
             alert(
@@ -629,5 +728,9 @@ function importDrawing(event) {
 // Inizializza
 clearCanvas();
 initColorPalette();
-loadSharedDrawingFromURL();
+// Un disegno condiviso via QR ha la priorità sull'autosalvataggio locale;
+// altrimenti, se presente, ripristino l'ultimo disegno salvato in automatico
+if (!loadSharedDrawingFromURL()) {
+    loadAutosavedState();
+}
 updateUndoRedoButtons();
