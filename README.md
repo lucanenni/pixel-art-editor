@@ -1,5 +1,7 @@
 # Pixel Art Editor
 
+[![Tests](https://github.com/lucanenni/pixel-art-editor/actions/workflows/test.yml/badge.svg)](https://github.com/lucanenni/pixel-art-editor/actions/workflows/test.yml)
+
 A small, dependency-free pixel art editor that runs entirely in the browser. Draw on a resizable grid using color palettes inspired by classic PC graphics cards (CGA/EGA/VGA), then export your drawing as a PNG image or a re-importable JSON file.
 
 Built as a teaching tool for vocational school students (graphic design and IT tracks) — the code is intentionally kept simple, vanilla JavaScript, and easy to read.
@@ -33,7 +35,7 @@ Built as a teaching tool for vocational school students (graphic design and IT t
 
 ## Getting started
 
-No build step and no dependencies to install — it's plain HTML/CSS/JS. The only external dependency is the [qrcodejs](https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js) library, loaded from a CDN.
+No build step and no dependencies to install to run the app — it's plain HTML/CSS/JS. The only external dependency is the [qrcodejs](https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js) library, loaded from a CDN. `package.json` exists only to give the test suite an `npm test` shortcut around Node's built-in test runner — there's nothing to `npm install`.
 
 Simplest option — just open the file in a browser:
 
@@ -48,6 +50,16 @@ python3 -m http.server 8000
 ```
 
 Then visit `http://localhost:8000`.
+
+### Running tests
+
+Unit tests cover the pure logic in `logic.js` (palette generation, color/pixel validation, XML escaping) using Node's built-in test runner — no packages to install, just a working Node (≥18):
+
+```bash
+npm test
+```
+
+(equivalent to `node --test`). A GitHub Actions workflow runs the same command on every push/PR — see the badge at the top of this file. Drawing/canvas code isn't covered by these tests, since it needs a real browser; that part was verified manually during development (see [CHANGELOG.md](CHANGELOG.md) for what was checked at each step).
 
 ## Usage
 
@@ -97,7 +109,14 @@ Import applies the exact same validation as JSON (grid size, palette, per-pixel 
 .
 ├── index.html        # page markup: canvas, controls, QR modal
 ├── style.css         # styling and responsive layout
-├── script.js         # app logic: drawing, palettes, export/import, QR code
+├── logic.js          # pure logic: palettes, validation — shared with Node tests
+├── script.js         # app logic: drawing, undo/redo, export/import, QR code, autosave
+├── test/
+│   └── logic.test.js # node:test unit tests for logic.js
+├── docs/
+│   └── demo-heart.png
+├── .github/workflows/test.yml  # CI: runs `npm test` on push/PR
+├── package.json      # just an `npm test` script, no dependencies
 ├── ARCHITECTURE.md   # technical deep-dive for maintainers
 ├── CHANGELOG.md      # feature history
 └── LICENSE
