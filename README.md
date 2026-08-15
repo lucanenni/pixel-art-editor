@@ -17,8 +17,8 @@ Built as a teaching tool for vocational school students (graphic design and IT t
 - **Eyedropper** — pick a color straight from an already-drawn pixel
 - **Export**
   - as a **PNG** image (`Scarica immagine`)
-  - as a **JSON** file describing the full drawing state (`Esporta JSON`), so it can be reloaded later
-- **Import** a previously exported JSON drawing (`Importa JSON`)
+  - as a **JSON** or **XML** file describing the full drawing state (`Esporta JSON` / `Esporta XML`), so it can be reloaded later
+- **Import** a previously exported JSON or XML drawing (`Importa JSON` / `Importa XML`)
 - **QR code sharing** (`Mostra QR code`) — generates a QR code encoding the drawing itself; scanning it reopens the app with the drawing restored and automatically downloads it as a PNG
 - **Bucket fill** — switch **Strumento** to **Secchiello** and click to flood-fill a contiguous same-colored area (including the blank background) with the selected color
 - **Undo/redo** (`Annulla`/`Ripeti`, or Ctrl+Z / Ctrl+Y) — steps back and forward through drawing actions
@@ -48,8 +48,8 @@ Then visit `http://localhost:8000`.
 1. Pick a **grid size** and a **color palette** from the dropdowns — changing either one clears the current drawing (no automatic resize/conversion of existing pixels).
 2. Click a color swatch in the palette to select it, then click or drag on the canvas to draw.
 3. Switch **Strumento** to **Contagocce** to pick up a color from a pixel you've already drawn instead of painting — it switches back to **Pennello** automatically after picking. Switch to **Secchiello** to flood-fill a contiguous area (a click, not a drag) instead.
-4. Use **Scarica immagine** to download a PNG snapshot of the canvas (grid lines included), or **Esporta JSON** to save the drawing data for later editing.
-5. Use **Importa JSON** to reload a drawing previously exported from this app.
+4. Use **Scarica immagine** to download a PNG snapshot of the canvas (grid lines included), or **Esporta JSON**/**Esporta XML** to save the drawing data for later editing.
+5. Use **Importa JSON**/**Importa XML** to reload a drawing previously exported from this app (either format).
 6. Use **Mostra QR code** to generate a QR code for the current drawing — scanning it (or opening the underlying URL) reopens the app with the drawing restored and downloads it as a PNG automatically. Very large/detailed drawings may exceed the data capacity of a QR code; in that case a metadata-only code is shown instead, with a message suggesting a smaller grid or `Esporta JSON`.
 7. Use **Annulla**/**Ripeti** (or Ctrl+Z / Ctrl+Y) to undo/redo drawing actions — one step per stroke, clear, or same-size import. Changing the grid size (or importing a drawing with a different size) resets the undo history.
 8. **Cancella tutto** wipes the canvas back to blank.
@@ -68,6 +68,22 @@ Then visit `http://localhost:8000`.
 ```
 
 `pixels` maps each painted cell (`"x,y"`) to its CSS color string. On import, `gridSize` and `palette` are checked against the app's known values, and each pixel entry is validated (well-formed `"x,y"` key inside the grid, `rgb(r,g,b)` color with components ≤ 255) — invalid entries are dropped and the user is told how many were skipped.
+
+### XML export format
+
+The same data, as XML:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<pixelArt version="1.0" gridSize="32" palette="vga" timestamp="2026-08-04T10:00:00.000Z">
+  <pixels>
+    <pixel x="3" y="4" color="rgb(255,0,0)" />
+    <pixel x="5" y="5" color="rgb(0,0,0)" />
+  </pixels>
+</pixelArt>
+```
+
+Import applies the exact same validation as JSON (grid size, palette, per-pixel coordinates/color), just reading from `<pixel>` element attributes instead of object keys.
 
 ## Project structure
 
