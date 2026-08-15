@@ -6,6 +6,12 @@ Built as a teaching tool for vocational school students (graphic design and IT t
 
 > Vibe-coded with Claude, with some manual tweaks on top.
 
+<p align="center">
+  <img src="docs/demo-heart.png" alt="A heart drawn with the pixel art editor on a 24x24 grid" width="360" />
+  <br />
+  <sub>A drawing made with the editor (24×24 grid, VGA palette).</sub>
+</p>
+
 ## Features
 
 - **Resizable drawing grid** — 8×8, 12×12, 16×16, 24×24, or 32×32 cells, rendered on a fixed 512×512 canvas
