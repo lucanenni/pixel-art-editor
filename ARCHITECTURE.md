@@ -1,6 +1,14 @@
 # Architecture
 
-Technical reference for maintaining `script.js`. Describes global state, main functions, and data flow. See [README.md](README.md) for a user-facing overview and [CHANGELOG.md](CHANGELOG.md) for history.
+Technical reference for maintaining `script.js` and `logic.js`. Describes global state, main functions, and data flow. See [README.md](README.md) for a user-facing overview and [CHANGELOG.md](CHANGELOG.md) for history.
+
+## File split: `logic.js` vs `script.js`
+
+`logic.js` holds every function that is pure (no DOM/canvas/`localStorage` access): the palette generators, `isValidRGBColor`, `filterValidPixels`, `escapeXMLAttribute`, and the `VALID_GRID_SIZES`/`VALID_PALETTES`/`RGB_COLOR_PATTERN` constants. `script.js` holds everything else (drawing, undo/redo, import/export, QR, autosave) and depends on `logic.js` being loaded first — `index.html` loads `<script src="logic.js">` before `<script src="script.js">`, so in the browser both files just share the same global scope, exactly as if it were still one file.
+
+The split exists so `logic.js` can also be `require()`d directly by the Node test suite (`test/logic.test.js`, run with `node --test` / `npm test`) without needing a real DOM. At the bottom of `logic.js`, a small guard (`if (typeof module !== "undefined" && module.exports)`) exports its functions for Node; in the browser `module` doesn't exist, so that block is simply skipped and everything stays global as usual. See the "Running tests" section in the README.
+
+`script.js` itself is not required by the tests and still can't be — it touches `document`/`canvas`/`localStorage` at module scope, so it only runs inside a real browser (or something that fakes one, like Playwright). Its DOM-heavy code (drawing, canvas rendering, undo/redo, import/export flows) is instead verified manually in the browser during development; see the commit messages / CHANGELOG for what was checked at each step.
 
 ## Global state
 
@@ -22,13 +30,13 @@ Defined at the top of `script.js`:
 
 ## Color palettes
 
-Three generator functions, each returning an array of `rgb(r,g,b)` strings:
+Three generator functions (in `logic.js`, unit-tested — see "File split" above), each returning an array of `rgb(r,g,b)` strings:
 
 - `generateCGAColors()` — 16 hardcoded colors (the historical IBM CGA palette)
 - `generateEGAColors()` — 64 colors, combining 4 levels (0, 85, 170, 255) across R/G/B
 - `generateVGAColors()` — 256 colors: 16 CGA colors + 16 grays + 216 colors (6 levels per channel, 6³ = 216), truncated/padded to 256
 
-`generateColors()` dispatches based on `currentPalette`.
+`generateColors()` (in `script.js`) dispatches based on `currentPalette` — it isn't itself in `logic.js` since it reads that global.
 
 `initColorPalette()`:
 1. clears `#colorPalette` (`innerHTML = ''`) — **essential**, without this colors pile up on every palette change
