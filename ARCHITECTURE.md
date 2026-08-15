@@ -15,7 +15,7 @@ Defined at the top of `script.js`:
 | `isDrawing` | boolean | true while the mouse is held down, for drag-drawing |
 | `pixels` | object | map `"x,y" -> color` of every drawn pixel |
 | `currentPalette` | string | `'cga'` \| `'ega'` \| `'vga'` — starts as `'vga'` |
-| `currentTool` | string | `'brush'` (default) \| `'eyedropper'` — active drawing tool, driven by `#toolSelect` |
+| `currentTool` | string | `'brush'` (default) \| `'eyedropper'` \| `'bucket'` — active drawing tool, driven by `#toolSelect` |
 | `undoStack`, `redoStack` | array | stacks of `pixels` snapshots for undo/redo, capped at `MAX_HISTORY` (50) entries |
 
 **Note**: `pixels` is the source of truth for the drawing. The canvas is only its visual representation; redrawing from `pixels` (see `importDrawing`) is the correct way to restore a state.
@@ -40,9 +40,11 @@ Three generator functions, each returning an array of `rgb(r,g,b)` strings:
 - `drawGrid()` — draws the grid lines on the canvas (called by `clearCanvas`)
 - `getPixelCoords(e)` — converts mouse (client) coordinates into grid cell coordinates, accounting for the scaling between the canvas' CSS size and its real size (`scaleX`/`scaleY`)
 - `drawPixel(x, y, color)` — draws the colored rectangle (with a 1px margin so the grid underneath stays visible) and updates `pixels[x,y]`
-- `handleDraw(e)` — single handler for `mousedown`/`mousemove`/`click`:
-  - if `currentTool === "eyedropper"`: reads the color from `pixels`, sets it as `currentColor`, and switches back to `"brush"` via `setTool()`
-  - otherwise: draws normally (only while `isDrawing`, or on a `click` event)
+- `floodFill(startX, startY, fillColor)` — iterative (stack-based, not recursive) 4-directional flood fill: colors every cell reachable from `(startX, startY)` that shares its starting color, where an undrawn cell counts as color `null` (so filling the blank background works too). No-ops immediately if the target cell already has `fillColor`. See "Undo / redo" for how it pushes history.
+- `handleDraw(e)` — single handler for `mousedown`/`mousemove`/`click`, branching on `currentTool`:
+  - `"eyedropper"`: reads the color from `pixels`, sets it as `currentColor`, and switches back to `"brush"` via `setTool()`
+  - `"bucket"`: calls `floodFill()` once per click (ignores `mousemove`, so dragging with the bucket selected doesn't repeatedly fill)
+  - `"brush"` (default): draws normally (only while `isDrawing`, or on a `click` event)
 
 Events registered on the canvas: `mousedown` (sets `isDrawing = true` and draws), `mousemove`, `mouseup`/`mouseleave` (`isDrawing = false`), `click` (for a single tap/click without dragging).
 
@@ -63,21 +65,22 @@ Events registered on the canvas: `mousedown` (sets `isDrawing = true` and draws)
 
 `pushUndoState()` call sites — each represents one undoable action:
 - `mousedown` on the canvas, once per stroke (not per `drawPixel()` call during a drag) — only while `currentTool === "brush"`, since other tools don't mutate `pixels` from this handler
+- `floodFill()`, once per fill — but only *after* confirming the fill will actually change something (`targetColor !== fillColor`), so clicking the bucket on an already-matching area doesn't waste a history slot
 - `clearAll()` (bound to the "Cancella tutto" button; the raw `clearCanvas()` is still used internally, without pushing history, by `changeGridSize()`, `restorePixels()`, and `importDrawing()`)
 - `importDrawing()`, only when the imported `gridSize` matches the current one (otherwise `clearHistory()` runs instead, see above)
 
 Keyboard shortcuts: `Ctrl+Z` (or `Cmd+Z` on Mac) for undo, `Ctrl+Y` or `Ctrl+Shift+Z` for redo, handled by a `keydown` listener on `document`.
 
-## Tools (brush / eyedropper)
+## Tools (brush / eyedropper / bucket)
 
 - `#toolSelect` — a `<select>` (same pattern as grid size / palette) listing the available tools; `onchange="changeTool()"`
 - `changeTool()` reads `#toolSelect`'s value and calls `setTool()`
-- `setTool(tool)` sets `currentTool`, syncs `#toolSelect`'s displayed value (so code can switch tools programmatically, e.g. after an eyedropper pick), and updates the canvas cursor (`pointer` for eyedropper, `crosshair` otherwise)
-- Eyedropper color reading happens inside `handleDraw()` rather than a separate handler, to reuse the same coordinate-conversion logic; picking a color calls `setTool("brush")` to switch back automatically
+- `setTool(tool)` sets `currentTool`, syncs `#toolSelect`'s displayed value (so code can switch tools programmatically, e.g. after an eyedropper pick), and updates the canvas cursor via the `TOOL_CURSORS` lookup (`pointer` for eyedropper, `cell` for bucket, `crosshair` otherwise)
+- Eyedropper color reading and the bucket's `floodFill()` call both happen inside `handleDraw()` rather than separate handlers, to reuse the same coordinate-conversion logic; picking a color with the eyedropper calls `setTool("brush")` to switch back automatically
 
 ⚠️ Historical bug (fixed in v1.2.0): the eyedropper's own toggle markup was missing from `index.html` entirely — the feature was fully implemented in `script.js` and documented, but had no UI element to reach it. If you add a new tool, always check it's actually wired into `index.html`, not just implemented in JS.
 
-This is a small scaffold meant to grow: adding another tool (e.g. bucket fill) means adding an `<option>` to `#toolSelect` and a branch in `handleDraw()`/`mousedown`, without touching the rest.
+This is a small scaffold meant to grow: adding another tool means adding an `<option>` to `#toolSelect`, an entry in `TOOL_CURSORS`, and a branch in `handleDraw()` (plus `mousedown` if it needs its own undo handling), without touching the rest.
 
 ## Image export
 
