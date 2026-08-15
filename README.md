@@ -45,7 +45,7 @@ Then visit `http://localhost:8000`.
 
 1. Pick a **grid size** and a **color palette** from the dropdowns — changing either one clears the current drawing (no automatic resize/conversion of existing pixels).
 2. Click a color swatch in the palette to select it, then click or drag on the canvas to draw.
-3. Enable **eyedropper mode** to pick up a color from a pixel you've already drawn instead of painting.
+3. Switch **Strumento** to **Contagocce** to pick up a color from a pixel you've already drawn instead of painting — it switches back to **Pennello** automatically after picking.
 4. Use **Scarica immagine** to download a PNG snapshot of the canvas (grid lines included), or **Esporta JSON** to save the drawing data for later editing.
 5. Use **Importa JSON** to reload a drawing previously exported from this app.
 6. Use **Mostra QR code** to generate a QR code for the current drawing — scanning it (or opening the underlying URL) reopens the app with the drawing restored and downloads it as a PNG automatically. Very large/detailed drawings may exceed the data capacity of a QR code; in that case a metadata-only code is shown instead, with a message suggesting a smaller grid or `Esporta JSON`.
