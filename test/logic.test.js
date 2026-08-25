@@ -14,7 +14,6 @@ const {
     generateCGAColors,
     generateEGAColors,
     generateVGAColors,
-    pickFarthestColors,
     paletteColorsFor,
     findNearestColor,
     encodePixelsCompact,
@@ -88,32 +87,62 @@ describe("filterValidPixels", () => {
 });
 
 describe("palette generators", () => {
-    test("generateCGAColors produce 16 colori validi", () => {
+    test("generateCGAColors produce i 16 colori CGA standard, valori esatti", () => {
+        // Valori verificati contro la voce Wikipedia "Enhanced Graphics
+        // Adapter" (tabella dei 16 colori) e contro la prima riga della
+        // palette VGA di riferimento (vedi generateVGAColors)
         const colors = generateCGAColors();
         assert.equal(colors.length, 16);
         for (const color of colors) assert.equal(isValidRGBColor(color), true);
+        assert.deepEqual(colors, [
+            "rgb(0,0,0)", "rgb(0,0,170)", "rgb(0,170,0)", "rgb(0,170,170)",
+            "rgb(170,0,0)", "rgb(170,0,170)", "rgb(170,85,0)", "rgb(170,170,170)",
+            "rgb(85,85,85)", "rgb(85,85,255)", "rgb(85,255,85)", "rgb(85,255,255)",
+            "rgb(255,85,85)", "rgb(255,85,255)", "rgb(255,255,85)", "rgb(255,255,255)"
+        ]);
     });
 
-    test("generateEGAColors produce 64 colori validi", () => {
+    test("generateEGAColors produce 64 colori validi nell'ordine hardware reale (bit rgbRGB)", () => {
         const colors = generateEGAColors();
         assert.equal(colors.length, 64);
         for (const color of colors) assert.equal(isValidRGBColor(color), true);
+
+        // Spot-check contro la tabella dei 16 colori CGA-compatibili della
+        // voce Wikipedia "Enhanced Graphics Adapter": nota che il marrone è
+        // all'indice 20, non 6 come una progressione lineare farebbe pensare
+        const knownIndices = {
+            0: "rgb(0,0,0)", 1: "rgb(0,0,170)", 2: "rgb(0,170,0)", 3: "rgb(0,170,170)",
+            4: "rgb(170,0,0)", 5: "rgb(170,0,170)", 20: "rgb(170,85,0)", 7: "rgb(170,170,170)",
+            56: "rgb(85,85,85)", 57: "rgb(85,85,255)", 58: "rgb(85,255,85)", 59: "rgb(85,255,255)",
+            60: "rgb(255,85,85)", 61: "rgb(255,85,255)", 62: "rgb(255,255,85)", 63: "rgb(255,255,255)"
+        };
+        for (const [index, expected] of Object.entries(knownIndices)) {
+            assert.equal(colors[index], expected, `indice ${index}`);
+        }
     });
 
-    test("generateVGAColors produce 256 colori validi, che iniziano con la palette CGA", () => {
+    test("generateVGAColors produce i 256 colori della palette di default di Mode 13h", () => {
         const vga = generateVGAColors();
         const cga = generateCGAColors();
         assert.equal(vga.length, 256);
         for (const color of vga) assert.equal(isValidRGBColor(color), true);
-        assert.deepEqual(vga.slice(0, 16), cga);
-    });
 
-    test("generateVGAColors contiene 256 colori tutti distinti", () => {
-        // CGA, scala di grigi e web-safe si sovrappongono in alcuni punti
-        // (es. nero e bianco compaiono in più di una famiglia): la palette
-        // deve comunque risultare di 256 colori diversi, non ripetuti
-        const vga = generateVGAColors();
-        assert.equal(new Set(vga).size, 256);
+        // I primi 16 sono esattamente la palette CGA
+        assert.deepEqual(vga.slice(0, 16), cga);
+
+        // Non tutti i 256 sono distinti, ed è corretto così (fedele
+        // all'originale): 244 lo sono, il resto sono ripetizioni note
+        assert.equal(new Set(vga).size, 244);
+
+        // L'indice 16 (inizio rampa di grigi) è nero come l'indice 0
+        assert.equal(vga[16], "rgb(0,0,0)");
+        assert.equal(vga[31], "rgb(255,255,255)"); // fine rampa di grigi = bianco
+
+        // Gli ultimi 8 indici (248-255) sono tutti neri: riservati/non
+        // usati sull'hardware reale, non un bug di generazione
+        for (let i = 248; i <= 255; i++) {
+            assert.equal(vga[i], "rgb(0,0,0)", `indice ${i}`);
+        }
     });
 });
 
@@ -148,29 +177,6 @@ describe("findNearestColor", () => {
 
     test("un colore non in formato valido ricade sul primo della palette", () => {
         assert.equal(findNearestColor("non-un-colore", ["rgb(1,2,3)", "rgb(4,5,6)"]), "rgb(1,2,3)");
-    });
-});
-
-describe("pickFarthestColors", () => {
-    test("sceglie il candidato più lontano dai colori esistenti", () => {
-        const existing = ["rgb(0,0,0)"];
-        const candidates = ["rgb(10,10,10)", "rgb(255,255,255)"];
-        assert.deepEqual(pickFarthestColors(existing, candidates, 1), ["rgb(255,255,255)"]);
-    });
-
-    test("i colori scelti sono sparsi anche tra loro, non solo dagli esistenti", () => {
-        const existing = ["rgb(0,0,0)"];
-        // rgb(250,250,250) è quasi identico al primo scelto (255,255,255):
-        // il secondo scelto deve evitarlo a favore di rgb(0,255,0)
-        const candidates = ["rgb(255,255,255)", "rgb(250,250,250)", "rgb(0,255,0)"];
-        assert.deepEqual(
-            pickFarthestColors(existing, candidates, 2),
-            ["rgb(255,255,255)", "rgb(0,255,0)"]
-        );
-    });
-
-    test("non sceglie più colori di quanti candidati disponibili", () => {
-        assert.deepEqual(pickFarthestColors([], ["rgb(1,1,1)"], 5), ["rgb(1,1,1)"]);
     });
 });
 
