@@ -17,10 +17,10 @@ Built as a teaching tool for vocational school students (graphic design and IT t
 ## Features
 
 - **Resizable drawing grid** — 8×8, 12×12, 16×16, 24×24, or 32×32 cells, rendered on a fixed 512×512 canvas
-- **Retro color palettes**, generated procedurally:
-  - **CGA** — 16 colors
-  - **EGA** — 64 colors (4 levels per RGB channel)
-  - **VGA** — 256 colors (16 CGA + 16 grayscale + 216 web-safe colors); loaded by default
+- **Historically accurate color palettes**, matching real hardware:
+  - **CGA** — 16 colors, the standard IBM CGA palette
+  - **EGA** — 64 colors, in the real hardware register order (not just the right 64 colors — the same order a real EGA card's palette registers use)
+  - **VGA** — 256 colors, the literal default palette of VGA "Mode 13h" (the same 256 colors real VGA hardware/BIOS loads for that mode — including its own quirks, like the last 8 entries all being black); loaded by default
 - **Freehand drawing** — click or click-and-drag across the canvas, with mouse or touch (tablets/touchscreens)
 - **Eyedropper** — in Chrome/Edge, pick a color from *anywhere on screen* (any window, image, tab — using the browser's native [`EyeDropper` API](https://developer.mozilla.org/en-US/docs/Web/API/EyeDropper)); elsewhere, falls back to picking from the canvas only. Either way, the picked color is snapped to the closest one in the current palette, so the drawing stays within its 16/64/256 colors
 - **Export**
