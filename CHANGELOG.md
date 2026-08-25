@@ -98,6 +98,11 @@ Found via an external code review of the v1.2.0 state ([ANALYSIS.md](https://git
 - **Bug fix**: the eyedropper picked up a color (and switched back to the brush) just by moving the mouse over an already-drawn pixel — no click needed. `handleDraw()`'s eyedropper branch reacted to `mousemove`/`touchmove` the same as a click, unlike the bucket tool's branch right below it, which already correctly ignored hover/drag events. Added the same guard to the eyedropper.
 - **Tool selector redesigned as three icon buttons** ("Pennello"/"Contagocce"/"Secchiello") instead of a `<select>` with text options, each a hand-drawn inline SVG (brush, pipette-with-a-drop, bucket-with-a-drop). Kept the same accessibility properties the `<select>` had: real `<button>`s (native keyboard support), `aria-label` naming each tool, `aria-pressed` tracking the active one, and a visible focus outline — same pattern already used for the color swatches.
 
+## v1.2.4 - Whole-screen eyedropper
+
+- **Eyedropper can now pick from anywhere on screen**, not just already-drawn canvas pixels: clicking "Contagocce" uses the browser's native [`EyeDropper` API](https://developer.mozilla.org/en-US/docs/Web/API/EyeDropper) where available, which lets you sample a color from literally anywhere — other browser tabs, other application windows, the OS itself. Currently supported in Chrome/Edge (Chromium-based browsers); **not** in Firefox or Safari.
+- Where the native API isn't available, falls back to the previous canvas-only picking — but now also fixed to pick up white when clicking an undrawn cell, instead of silently doing nothing (an undrawn cell is, visually, the same white as the background).
+
 ## Known issues
 
 - QR code capacity is still limited: drawings with many colored pixels (especially on large grids) can exceed the ~2000-character threshold and fall back to the metadata-only QR code, which does not itself carry the drawing. This is inherent to QR codes and not fixable client-side.
