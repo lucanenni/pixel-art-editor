@@ -50,7 +50,7 @@ Three generator functions (in `logic.js`, unit-tested — see "File split" above
 - `drawPixel(x, y, color)` — draws the colored rectangle (with a 1px margin so the grid underneath stays visible) and updates `pixels[x,y]`
 - `floodFill(startX, startY, fillColor)` — iterative (stack-based, not recursive) 4-directional flood fill: colors every cell reachable from `(startX, startY)` that shares its starting color, where an undrawn cell counts as color `null` (so filling the blank background works too). No-ops immediately if the target cell already has `fillColor`. See "Undo / redo" for how it pushes history.
 - `handleDraw(e)` — single handler for `mousedown`/`mousemove`/`click`, branching on `currentTool`:
-  - `"eyedropper"`: reads the color from `pixels`, sets it as `currentColor`, and switches back to `"brush"` via `setTool()`
+  - `"eyedropper"` (only reached as a fallback — see "Eyedropper" below): reads the color from `pixels` (or white, for an undrawn cell), sets it as `currentColor`, and switches back to `"brush"` via `setTool()`
   - `"bucket"`: calls `floodFill()` once per click (ignores `mousemove`, so dragging with the bucket selected doesn't repeatedly fill)
   - `"brush"` (default): draws normally (only while `isDrawing`, or on a `click` event)
 
@@ -85,12 +85,21 @@ Keyboard shortcuts: `Ctrl+Z` (or `Cmd+Z` on Mac) for undo, `Ctrl+Y` or `Ctrl+Shi
 
 ## Tools (brush / eyedropper / bucket)
 
-- Three `<button class="tool-btn" data-tool="...">` inside a `role="group"` in `index.html` (an icon-based toggle group, same `aria-pressed` pattern as the color swatches — see "Accessibility" below), each calling `setTool('brush' | 'eyedropper' | 'bucket')` directly via `onclick` with a literal argument — no `changeTool()`/`<select>` indirection needed since there's no form control to read a `.value` from.
+- Three `<button class="tool-btn" data-tool="...">` inside a `role="group"` in `index.html` (an icon-based toggle group, same `aria-pressed` pattern as the color swatches — see "Accessibility" below). The brush and bucket buttons call `setTool('brush' | 'bucket')` directly via `onclick`; the eyedropper button calls `activateEyedropper()` instead (see below) — no `changeTool()`/`<select>` indirection needed anywhere here since there's no form control to read a `.value` from.
 - `setTool(tool)` sets `currentTool`, syncs `aria-pressed` on every `.tool-btn` (comparing against `dataset.tool`, so code can switch tools programmatically, e.g. after an eyedropper pick, and the UI stays correct), and updates the canvas cursor via the `TOOL_CURSORS` lookup (`pointer` for eyedropper, `cell` for bucket, `crosshair` otherwise)
-- Eyedropper color reading and the bucket's `floodFill()` call both happen inside `handleDraw()` rather than separate handlers, to reuse the same coordinate-conversion logic; picking a color with the eyedropper calls `setTool("brush")` to switch back automatically
-- Both the eyedropper and bucket branches in `handleDraw()` **must** ignore `mousemove`/`touchmove` (only act on the initiating `mousedown`/`touchstart`/`click`) — the eyedropper was missing this guard until v1.2.3, so merely moving the pointer over an already-drawn pixel while the eyedropper was selected picked its color and silently switched back to the brush, with no click involved. If you add a tool whose action shouldn't repeat continuously while the pointer moves, copy this guard, don't assume `handleDraw()` only runs on clicks.
+- The bucket's `floodFill()` call happens inside `handleDraw()`, to reuse the same coordinate-conversion logic as the brush
+- The bucket branch in `handleDraw()` **must** ignore `mousemove`/`touchmove` (only act on the initiating `mousedown`/`touchstart`/`click`) — the eyedropper's fallback branch (below) had the same requirement and was missing it until v1.2.3, so merely moving the pointer over an already-drawn pixel while the eyedropper was selected picked its color and silently switched back to the brush, with no click involved. If you add a tool whose action shouldn't repeat continuously while the pointer moves, copy this guard, don't assume `handleDraw()` only runs on clicks.
 
 ⚠️ Historical bug (fixed in v1.2.0): the eyedropper's own toggle markup was missing from `index.html` entirely — the feature was fully implemented in `script.js` and documented, but had no UI element to reach it. If you add a new tool, always check it's actually wired into `index.html`, not just implemented in JS.
+
+### Eyedropper (`activateEyedropper()`)
+
+Since v1.2.4, clicking the eyedropper button calls `activateEyedropper()` (`async`), which branches on whether the browser supports the native [`EyeDropper` API](https://developer.mozilla.org/en-US/docs/Web/API/EyeDropper) (`window.EyeDropper` — Chromium-based browsers only, not Firefox/Safari):
+
+- **Supported**: `new EyeDropper().open()` hands the *entire screen* over to the browser's own picker UI (not limited to this page, or even this browser window) and resolves with `{ sRGBHex: "#rrggbb" }`. The result is converted with `hexToRGB()` and passed to `selectColor()`. If the user cancels (e.g. `Esc`) the promise rejects; the `catch` swallows it silently — there's nothing to recover, the user just didn't pick anything. Either way (`try` or `catch`) it finishes by calling `setTool("brush")`, exactly like the fallback path below.
+- **Not supported**: falls back to `setTool("eyedropper")`, entering the same "click a canvas cell to pick its color" mode as before v1.2.4 — this is the branch in `handleDraw()` under `currentTool === "eyedropper"`. An undrawn cell now resolves to `"rgb(255,255,255)"` (the same white as the visible background) instead of doing nothing, so a click always picks *something*.
+
+`hexToRGB(hex)` is a small standalone conversion (`"#rrggbb"` → `"rgb(r,g,b)"`); it exists because the native API is the only thing in the codebase that produces a hex color — everything else already speaks `rgb()`.
 
 This is a small scaffold meant to grow: adding another tool means adding a `.tool-btn` (with its own icon) to `index.html`, an entry in `TOOL_CURSORS`, and a branch in `handleDraw()` (plus `mousedown`/`touchstart` if it needs its own undo handling), without touching the rest.
 

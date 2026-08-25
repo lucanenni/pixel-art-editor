@@ -260,18 +260,20 @@ function handleDraw(e) {
     const { x, y } = getPixelCoords(e);
     if (x < 0 || x >= gridSize || y < 0 || y >= gridSize) return;
 
-    // Modalità contagocce: preleva un colore con un click/tap, non passando
-    // sopra un pixel col mouse (altrimenti basterebbe muovere il cursore
-    // sopra un pixel colorato per prelevarlo e tornare subito al pennello)
+    // Modalità contagocce (fallback per i browser senza l'API EyeDropper
+    // nativa, vedi activateEyedropper()): preleva un colore con un
+    // click/tap, non passando sopra un pixel col mouse (altrimenti
+    // basterebbe muovere il cursore sopra un pixel colorato per prelevarlo
+    // e tornare subito al pennello). Una cella mai disegnata vale bianco,
+    // lo stesso colore di sfondo che si vede — così il contagocce preleva
+    // sempre qualcosa invece di non fare nulla in silenzio.
     if (currentTool === "eyedropper") {
         if (e.type === "mousemove" || e.type === "touchmove") return;
         const pixelKey = `${x},${y}`;
-        if (pixels[pixelKey]) {
-            selectColor(pixels[pixelKey]);
-            // Dopo aver prelevato un colore si torna al pennello, pronti a
-            // disegnare con quel colore
-            setTool("brush");
-        }
+        selectColor(pixels[pixelKey] || "rgb(255,255,255)");
+        // Dopo aver prelevato un colore si torna al pennello, pronti a
+        // disegnare con quel colore
+        setTool("brush");
         return;
     }
 
@@ -419,6 +421,39 @@ function setTool(tool) {
         btn.setAttribute("aria-pressed", String(btn.dataset.tool === tool));
     });
     canvas.style.cursor = TOOL_CURSORS[tool] || "crosshair";
+}
+
+// Converte un colore esadecimale ("#rrggbb", quello restituito dall'API
+// EyeDropper) nel formato "rgb(r,g,b)" usato in tutta l'app
+function hexToRGB(hex) {
+    const value = hex.replace("#", "");
+    const r = parseInt(value.substring(0, 2), 16);
+    const g = parseInt(value.substring(2, 4), 16);
+    const b = parseInt(value.substring(4, 6), 16);
+    return `rgb(${r},${g},${b})`;
+}
+
+// Contagocce: se il browser supporta l'API nativa EyeDropper, la usa per
+// prelevare un colore da qualsiasi punto dello schermo (non solo dal
+// canvas — anche altre finestre, immagini, ecc.). È supportata solo da
+// alcuni browser (es. Chrome/Edge, non Firefox/Safari): dove manca, si
+// passa invece alla modalità contagocce "classica" che preleva solo
+// cliccando su una cella del canvas (vedi il branco in handleDraw()).
+async function activateEyedropper() {
+    if (!window.EyeDropper) {
+        setTool("eyedropper");
+        return;
+    }
+
+    try {
+        const result = await new EyeDropper().open();
+        selectColor(hexToRGB(result.sRGBHex));
+    } catch (error) {
+        // L'utente ha annullato (es. con Esc) o il prelievo non è
+        // riuscito: non c'è nulla da fare, si resta semplicemente sul
+        // pennello con il colore precedente
+    }
+    setTool("brush");
 }
 
 // Capienza pratica di un QR code affidabile da scansionare: oltre questa
