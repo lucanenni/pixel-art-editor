@@ -23,7 +23,7 @@ Defined at the top of `script.js`:
 | `isDrawing` | boolean | true while the mouse is held down, for drag-drawing |
 | `pixels` | object | map `"x,y" -> color` of every drawn pixel |
 | `currentPalette` | string | `'cga'` \| `'ega'` \| `'vga'` — starts as `'vga'` |
-| `currentTool` | string | `'brush'` (default) \| `'eyedropper'` \| `'bucket'` — active drawing tool, driven by `#toolSelect` |
+| `currentTool` | string | `'brush'` (default) \| `'eyedropper'` \| `'bucket'` — active drawing tool, driven by the `.tool-btn` icon buttons |
 | `undoStack`, `redoStack` | array | stacks of `pixels` snapshots for undo/redo, capped at `MAX_HISTORY` (50) entries |
 
 **Note**: `pixels` is the source of truth for the drawing. The canvas is only its visual representation; redrawing from `pixels` (see `importDrawing`) is the correct way to restore a state.
@@ -85,14 +85,14 @@ Keyboard shortcuts: `Ctrl+Z` (or `Cmd+Z` on Mac) for undo, `Ctrl+Y` or `Ctrl+Shi
 
 ## Tools (brush / eyedropper / bucket)
 
-- `#toolSelect` — a `<select>` (same pattern as grid size / palette) listing the available tools; `onchange="changeTool()"`
-- `changeTool()` reads `#toolSelect`'s value and calls `setTool()`
-- `setTool(tool)` sets `currentTool`, syncs `#toolSelect`'s displayed value (so code can switch tools programmatically, e.g. after an eyedropper pick), and updates the canvas cursor via the `TOOL_CURSORS` lookup (`pointer` for eyedropper, `cell` for bucket, `crosshair` otherwise)
+- Three `<button class="tool-btn" data-tool="...">` inside a `role="group"` in `index.html` (an icon-based toggle group, same `aria-pressed` pattern as the color swatches — see "Accessibility" below), each calling `setTool('brush' | 'eyedropper' | 'bucket')` directly via `onclick` with a literal argument — no `changeTool()`/`<select>` indirection needed since there's no form control to read a `.value` from.
+- `setTool(tool)` sets `currentTool`, syncs `aria-pressed` on every `.tool-btn` (comparing against `dataset.tool`, so code can switch tools programmatically, e.g. after an eyedropper pick, and the UI stays correct), and updates the canvas cursor via the `TOOL_CURSORS` lookup (`pointer` for eyedropper, `cell` for bucket, `crosshair` otherwise)
 - Eyedropper color reading and the bucket's `floodFill()` call both happen inside `handleDraw()` rather than separate handlers, to reuse the same coordinate-conversion logic; picking a color with the eyedropper calls `setTool("brush")` to switch back automatically
+- Both the eyedropper and bucket branches in `handleDraw()` **must** ignore `mousemove`/`touchmove` (only act on the initiating `mousedown`/`touchstart`/`click`) — the eyedropper was missing this guard until v1.2.3, so merely moving the pointer over an already-drawn pixel while the eyedropper was selected picked its color and silently switched back to the brush, with no click involved. If you add a tool whose action shouldn't repeat continuously while the pointer moves, copy this guard, don't assume `handleDraw()` only runs on clicks.
 
 ⚠️ Historical bug (fixed in v1.2.0): the eyedropper's own toggle markup was missing from `index.html` entirely — the feature was fully implemented in `script.js` and documented, but had no UI element to reach it. If you add a new tool, always check it's actually wired into `index.html`, not just implemented in JS.
 
-This is a small scaffold meant to grow: adding another tool means adding an `<option>` to `#toolSelect`, an entry in `TOOL_CURSORS`, and a branch in `handleDraw()` (plus `mousedown` if it needs its own undo handling), without touching the rest.
+This is a small scaffold meant to grow: adding another tool means adding a `.tool-btn` (with its own icon) to `index.html`, an entry in `TOOL_CURSORS`, and a branch in `handleDraw()` (plus `mousedown`/`touchstart` if it needs its own undo handling), without touching the rest.
 
 ## Image export
 
@@ -176,7 +176,7 @@ Added in v1.2.2, after a pass that found the color swatches were entirely unreac
 - **Color swatches** (`initColorPalette()`) are `<button>` elements, not `<div>`s — this alone makes them focusable (Tab) and activatable (Enter/Space) for free, no custom key handling needed. Each has `aria-label="Colore ${color}"`, `title="${color}"`, and `dataset.color` (an exact copy of the color string, used instead of re-reading `style.backgroundColor` back — the CSSOM can re-serialize that with different whitespace than what was set, e.g. `"rgb(255, 0, 0)"` vs `"rgb(255,0,0)"`, which would break an exact-string comparison).
 - **`aria-pressed`** on every swatch is kept in sync with `currentColor` inside `updateCurrentColor()` (called by both `initColorPalette()` and `selectColor()`), by comparing each swatch's `dataset.color` against the current color. `#currentColor` (the "selected color" preview box) gets `role="img"` and an `aria-label` set to the color string for the same reason.
 - **`#pixelCanvas`'s `aria-label`** ("Area di disegno, griglia N per N celle") is set at the end of `clearCanvas()`, which every gridSize-changing path already calls after updating `gridSize` — so it never needs a separate call site of its own to stay in sync (see "Undo / redo" above for the same reasoning applied to `renderPixels()`).
-- **Grid size / palette / tool `<select>`s** use `<label for="...">` in `index.html` instead of a nearby `<h3>`, which a screen reader doesn't associate with the control. `.control-group h3, .control-group label` share one CSS rule so both still look the same; `#currentColor` and `#colorPalette` (which aren't form controls) keep a heading, referenced via `aria-labelledby` instead.
+- **Grid size / palette `<select>`s** use `<label for="...">` in `index.html` instead of a nearby `<h3>`, which a screen reader doesn't associate with the control. `.control-group h3, .control-group label` share one CSS rule so both still look the same; `#currentColor`, `#colorPalette`, and the tool button group (which aren't `<select>`s) keep a heading, referenced via `aria-labelledby`/`role="group"` instead — see "Tools" above.
 - **The QR modal** (`showQRCode()`/`closeQRModal()`) is a minimal modal-dialog implementation: `role="dialog"` + `aria-modal="true"` + `aria-labelledby` on `.modal-content`; the close control is a real `<button id="qrModalCloseBtn">` (previously a `<span>` with only `onclick`, unreachable by keyboard); opening it saves `document.activeElement` into `qrModalTrigger` and focuses the close button; a dedicated `keydown` listener closes it on `Escape` and, since the close button is the *only* focusable element inside, simply re-focuses it on every `Tab` while the modal is open (`e.preventDefault()`) instead of implementing a full multi-element focus trap; closing it (`Escape`, the close button, or the backdrop) restores focus to `qrModalTrigger`.
 - Buttons that were already plain `<button>` elements (all the toolbar actions, the file-import triggers) needed no changes — they were keyboard-accessible from the start.
 - **Not done**: the canvas itself has no keyboard-driven drawing interaction (no cursor-move-and-paint via arrow keys) — only its `aria-label` was added, so a screen reader user knows what it is without being able to operate it. Documented as a known limitation rather than solved; would need a real "keyboard cursor" mode to fix properly.

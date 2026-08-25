@@ -101,12 +101,54 @@
             </div>
           </div>
           <div class="control-group">
-            <label for="toolSelect">Strumento</label>
-            <select id="toolSelect" onchange="changeTool()">
-              <option value="brush" selected>Pennello</option>
-              <option value="eyedropper">Contagocce</option>
-              <option value="bucket">Secchiello</option>
-            </select>
+            <h3 id="toolGroupLabel">Strumento</h3>
+            <div class="tool-group" role="group" aria-labelledby="toolGroupLabel">
+              <button
+                type="button"
+                class="tool-btn"
+                data-tool="brush"
+                aria-pressed="true"
+                aria-label="Pennello"
+                title="Pennello"
+                onclick="setTool('brush')"
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="4" y1="20" x2="13" y2="11"></line>
+                  <path d="M13 11 L19 5 C20 4 21.5 4 22 5 C22.5 6 22 7.5 21 8 L15 14 Z" fill="currentColor" stroke="none"></path>
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="tool-btn"
+                data-tool="eyedropper"
+                aria-pressed="false"
+                aria-label="Contagocce"
+                title="Contagocce"
+                onclick="setTool('eyedropper')"
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="20" y1="4" x2="14" y2="10" stroke-width="5"></line>
+                  <line x1="13" y1="11" x2="7" y2="17" stroke-width="2"></line>
+                  <path d="M7 17 L5 21 L9 19 Z" fill="currentColor" stroke="none"></path>
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="tool-btn"
+                data-tool="bucket"
+                aria-pressed="false"
+                aria-label="Secchiello"
+                title="Secchiello"
+                onclick="setTool('bucket')"
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M5 8 L19 8 L17 19 C17 20.1 14.8 21 12 21 C9.2 21 7 20.1 7 19 Z"></path>
+                  <line x1="5" y1="8" x2="7" y2="4"></line>
+                  <line x1="19" y1="8" x2="17" y2="4"></line>
+                  <circle cx="21" cy="14" r="1.3" fill="currentColor" stroke="none"></circle>
+                </svg>
+              </button>
+            </div>
           </div>
           <div class="control-group">
             <h3 id="colorPaletteLabel">Tavolozza colori</h3>

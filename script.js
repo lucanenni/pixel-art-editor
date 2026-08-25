@@ -260,8 +260,11 @@ function handleDraw(e) {
     const { x, y } = getPixelCoords(e);
     if (x < 0 || x >= gridSize || y < 0 || y >= gridSize) return;
 
-    // Modalità contagocce
+    // Modalità contagocce: preleva un colore con un click/tap, non passando
+    // sopra un pixel col mouse (altrimenti basterebbe muovere il cursore
+    // sopra un pixel colorato per prelevarlo e tornare subito al pennello)
     if (currentTool === "eyedropper") {
+        if (e.type === "mousemove" || e.type === "touchmove") return;
         const pixelKey = `${x},${y}`;
         if (pixels[pixelKey]) {
             selectColor(pixels[pixelKey]);
@@ -401,13 +404,9 @@ function downloadImage() {
     link.click();
 }
 
-// Cambia strumento a partire dal valore scelto in #toolSelect
-function changeTool() {
-    setTool(document.getElementById("toolSelect").value);
-}
-
-// Cambia strumento programmaticamente (es. dal contagocce torna al pennello
-// dopo aver prelevato un colore), tenendo sincronizzati select e cursore
+// Cambia strumento — chiamata sia dal click sui pulsanti #toolGroupLabel
+// sia programmaticamente (es. dal contagocce torna al pennello dopo aver
+// prelevato un colore), tenendo sincronizzati pulsanti e cursore
 const TOOL_CURSORS = {
     brush: "crosshair",
     eyedropper: "pointer",
@@ -416,7 +415,9 @@ const TOOL_CURSORS = {
 
 function setTool(tool) {
     currentTool = tool;
-    document.getElementById("toolSelect").value = tool;
+    document.querySelectorAll(".tool-btn").forEach((btn) => {
+        btn.setAttribute("aria-pressed", String(btn.dataset.tool === tool));
+    });
     canvas.style.cursor = TOOL_CURSORS[tool] || "crosshair";
 }
 
