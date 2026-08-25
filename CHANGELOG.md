@@ -103,6 +103,10 @@ Found via an external code review of the v1.2.0 state ([ANALYSIS.md](https://git
 - **Eyedropper can now pick from anywhere on screen**, not just already-drawn canvas pixels: clicking "Contagocce" uses the browser's native [`EyeDropper` API](https://developer.mozilla.org/en-US/docs/Web/API/EyeDropper) where available, which lets you sample a color from literally anywhere — other browser tabs, other application windows, the OS itself. Currently supported in Chrome/Edge (Chromium-based browsers); **not** in Firefox or Safari.
 - Where the native API isn't available, falls back to the previous canvas-only picking — but now also fixed to pick up white when clicking an undrawn cell, instead of silently doing nothing (an undrawn cell is, visually, the same white as the background).
 
+## v1.2.5 - Remove unreliable QR auto-download
+
+- **Bug fix**: opening a shared QR code link no longer tries to auto-download the image. It used to (see v1.7), but modern browsers increasingly block a download triggered by script without a direct, fresh user gesture — and they do it *silently*, no error to catch or detect. In practice this meant the download worked inconsistently ("often" not at all, even for a tiny 8x8/CGA drawing), with no feedback telling the user why. The drawing is still restored onto the canvas as before; instead of guessing at a download, the app now shows a message pointing the user at the "Scarica immagine" button — a real click, which always works.
+
 ## Known issues
 
 - QR code capacity is still limited: drawings with many colored pixels (especially on large grids) can exceed the ~2000-character threshold and fall back to the metadata-only QR code, which does not itself carry the drawing. This is inherent to QR codes and not fixable client-side.
