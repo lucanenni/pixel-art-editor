@@ -14,6 +14,7 @@ const {
     generateCGAColors,
     generateEGAColors,
     generateVGAColors,
+    pickFarthestColors,
     paletteColorsFor,
     findNearestColor,
     encodePixelsCompact,
@@ -147,6 +148,29 @@ describe("findNearestColor", () => {
 
     test("un colore non in formato valido ricade sul primo della palette", () => {
         assert.equal(findNearestColor("non-un-colore", ["rgb(1,2,3)", "rgb(4,5,6)"]), "rgb(1,2,3)");
+    });
+});
+
+describe("pickFarthestColors", () => {
+    test("sceglie il candidato più lontano dai colori esistenti", () => {
+        const existing = ["rgb(0,0,0)"];
+        const candidates = ["rgb(10,10,10)", "rgb(255,255,255)"];
+        assert.deepEqual(pickFarthestColors(existing, candidates, 1), ["rgb(255,255,255)"]);
+    });
+
+    test("i colori scelti sono sparsi anche tra loro, non solo dagli esistenti", () => {
+        const existing = ["rgb(0,0,0)"];
+        // rgb(250,250,250) è quasi identico al primo scelto (255,255,255):
+        // il secondo scelto deve evitarlo a favore di rgb(0,255,0)
+        const candidates = ["rgb(255,255,255)", "rgb(250,250,250)", "rgb(0,255,0)"];
+        assert.deepEqual(
+            pickFarthestColors(existing, candidates, 2),
+            ["rgb(255,255,255)", "rgb(0,255,0)"]
+        );
+    });
+
+    test("non sceglie più colori di quanti candidati disponibili", () => {
+        assert.deepEqual(pickFarthestColors([], ["rgb(1,1,1)"], 5), ["rgb(1,1,1)"]);
     });
 });
 
