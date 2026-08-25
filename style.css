@@ -152,6 +152,46 @@ select:focus {
     box-shadow: 0 0 0 2px #667eea;
 }
 
+/* Selettore strumento: tre pulsanti a icona invece di una <select> */
+.tool-group {
+    display: flex;
+    gap: 8px;
+}
+
+.tool-btn {
+    flex: 1;
+    min-width: 0;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    color: #555;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    box-shadow: none;
+    cursor: pointer;
+    transition: border-color 0.3s, background 0.3s, color 0.3s;
+}
+
+.tool-btn:hover {
+    border-color: #667eea;
+    transform: none;
+    box-shadow: none;
+}
+
+.tool-btn:focus-visible {
+    outline: 3px solid #667eea;
+    outline-offset: 1px;
+}
+
+/* Strumento attivo */
+.tool-btn[aria-pressed="true"] {
+    background: #667eea;
+    border-color: #667eea;
+    color: white;
+}
+
 .buttons {
     display: flex;
     flex-direction: row;

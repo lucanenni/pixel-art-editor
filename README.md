@@ -28,7 +28,7 @@ Built as a teaching tool for vocational school students (graphic design and IT t
   - as a **JSON** or **XML** file describing the full drawing state (`Esporta JSON` / `Esporta XML`), so it can be reloaded later
 - **Import** a previously exported JSON or XML drawing (`Importa JSON` / `Importa XML`)
 - **QR code sharing** (`Mostra QR code`) — generates a QR code encoding the drawing itself; scanning it reopens the app with the drawing restored and automatically downloads it as a PNG
-- **Bucket fill** — switch **Strumento** to **Secchiello** and click to flood-fill a contiguous same-colored area (including the blank background) with the selected color
+- **Bucket fill** — pick the **Secchiello** (bucket) tool and click to flood-fill a contiguous same-colored area (including the blank background) with the selected color
 - **Undo/redo** (`Annulla`/`Ripeti`, or Ctrl+Z / Ctrl+Y) — steps back and forward through drawing actions
 - **Autosave** — the drawing (grid, palette, pixels) is saved to `localStorage` after every action and restored automatically next time you open the app in the same browser
 - **Clear canvas** (`Cancella tutto`)
@@ -65,7 +65,7 @@ npm test
 
 1. Pick a **grid size** and a **color palette** from the dropdowns — changing either one clears the current drawing (no automatic resize/conversion of existing pixels).
 2. Click a color swatch in the palette to select it, then click or drag on the canvas to draw.
-3. Switch **Strumento** to **Contagocce** to pick up a color from a pixel you've already drawn instead of painting — it switches back to **Pennello** automatically after picking. Switch to **Secchiello** to flood-fill a contiguous area (a click, not a drag) instead.
+3. Under **Strumento**, pick the **Contagocce** (eyedropper) icon and click an already-drawn pixel to pick up its color instead of painting — it switches back to **Pennello** (brush) automatically after picking. Pick the **Secchiello** (bucket) icon to flood-fill a contiguous area (a click, not a drag) instead.
 4. Use **Scarica immagine** to download a PNG snapshot of the canvas (grid lines included), or **Esporta JSON**/**Esporta XML** to save the drawing data for later editing.
 5. Use **Importa JSON**/**Importa XML** to reload a drawing previously exported from this app (either format).
 6. Use **Mostra QR code** to generate a QR code for the current drawing — scanning it (or opening the underlying URL) reopens the app with the drawing restored and downloads it as a PNG automatically. Very large/detailed drawings may exceed the data capacity of a QR code; in that case a metadata-only code is shown instead, with a message suggesting a smaller grid or `Esporta JSON`.
@@ -141,8 +141,8 @@ Import applies the exact same validation as JSON (grid size, palette, per-pixel 
 
 ## Accessibility
 
-- Every color swatch is a real `<button>`, reachable with Tab and pickable with Enter/Space, with a visible focus outline and `aria-pressed` reflecting the current selection.
-- The grid size, palette, and tool controls use `<label for="...">`, not just a nearby heading, so screen readers announce them correctly.
+- Every color swatch and tool icon is a real `<button>`, reachable with Tab and pickable with Enter/Space, with a visible focus outline and `aria-pressed` reflecting the current selection.
+- The grid size and palette `<select>`s use `<label for="...">`, not just a nearby heading, so screen readers announce them correctly; the icon-based tool selector is a labeled `role="group"` instead.
 - The canvas and the current-color indicator carry a live `aria-label` describing what they show (grid size, selected color).
 - The QR code dialog behaves like a proper modal: opening it moves focus in and remembers where to return it, `Esc` closes it, and Tab can't escape it while it's open.
 

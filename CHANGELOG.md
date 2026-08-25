@@ -93,6 +93,11 @@ Found via an external code review of the v1.2.0 state ([ANALYSIS.md](https://git
 - **Described canvas and color swatch**: `#pixelCanvas` now has an `aria-label` reporting the current grid size (e.g. "Area di disegno, griglia 32 per 32 celle"), kept in sync in `clearCanvas()`; `#currentColor` has `role="img"` and an `aria-label` with the current color value; `#colorPalette` has `role="group"` labeled by its heading.
 - **Accessible QR modal**: the close control was a `<span>` with only an `onclick` — not reachable by keyboard at all. It's now a real `<button>`. The dialog itself gained `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` pointing at its title, plus proper focus handling: opening it moves focus to the close button and remembers what triggered it, `Esc` closes it, Tab is trapped inside while it's open, and closing (via `Esc`, the close button, or clicking the backdrop) returns focus to whatever opened it.
 
+## v1.2.3 - Eyedropper hover bug, icon-based tool selector
+
+- **Bug fix**: the eyedropper picked up a color (and switched back to the brush) just by moving the mouse over an already-drawn pixel — no click needed. `handleDraw()`'s eyedropper branch reacted to `mousemove`/`touchmove` the same as a click, unlike the bucket tool's branch right below it, which already correctly ignored hover/drag events. Added the same guard to the eyedropper.
+- **Tool selector redesigned as three icon buttons** ("Pennello"/"Contagocce"/"Secchiello") instead of a `<select>` with text options, each a hand-drawn inline SVG (brush, pipette-with-a-drop, bucket-with-a-drop). Kept the same accessibility properties the `<select>` had: real `<button>`s (native keyboard support), `aria-label` naming each tool, `aria-pressed` tracking the active one, and a visible focus outline — same pattern already used for the color swatches.
+
 ## Known issues
 
 - QR code capacity is still limited: drawings with many colored pixels (especially on large grids) can exceed the ~2000-character threshold and fall back to the metadata-only QR code, which does not itself carry the drawing. This is inherent to QR codes and not fixable client-side.
