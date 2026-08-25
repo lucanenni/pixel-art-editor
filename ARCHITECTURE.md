@@ -19,7 +19,7 @@ Defined at the top of `script.js`:
 | `canvas`, `ctx` | DOM/Context2D | reference to `<canvas id="pixelCanvas">` |
 | `gridSize` | number | grid side length in cells (8/12/16/24/32) |
 | `pixelSize` | number | on-screen side of one cell = `canvas.width / gridSize`, recalculated on every grid change |
-| `currentColor` | string | currently selected CSS color (e.g. `rgb(255,0,0)`) |
+| `currentColor` | string | currently selected color — **must** always be in `"rgb(r,g,b)"` format (matching `RGB_COLOR_PATTERN`/`isValidRGBColor()` in `logic.js`), starts as `"rgb(0,0,0)"`. A `"#..."` hex value would display and export fine but silently fail every re-import/autosave-restore/QR-share check, since `filterValidPixels()` only accepts `rgb()` — this was a real bug until v1.2.1. |
 | `isDrawing` | boolean | true while the mouse is held down, for drag-drawing |
 | `pixels` | object | map `"x,y" -> color` of every drawn pixel |
 | `currentPalette` | string | `'cga'` \| `'ega'` \| `'vga'` — starts as `'vga'` |
@@ -34,7 +34,7 @@ Three generator functions (in `logic.js`, unit-tested — see "File split" above
 
 - `generateCGAColors()` — 16 hardcoded colors (the historical IBM CGA palette)
 - `generateEGAColors()` — 64 colors, combining 4 levels (0, 85, 170, 255) across R/G/B
-- `generateVGAColors()` — 256 colors: 16 CGA colors + 16 grays + 216 colors (6 levels per channel, 6³ = 216), truncated/padded to 256
+- `generateVGAColors()` — 256 colors: 16 CGA colors + 16 grays + 216 web-safe colors (6 levels per channel, 6³ = 216). These three families overlap (e.g. black and white appear in more than one of them), so they only yield ~238 *distinct* colors on their own; a `pushUnique()` helper skips anything already seen and tops up the shortfall with an additional, non-overlapping RGB grid, guaranteeing exactly 256 distinct colors every time (covered by a dedicated test in `test/logic.test.js` — see "File split" above). An earlier version padded the shortfall by repeating plain black, which meant `rgb(0,0,0)` alone accounted for 11 of the 256 slots; fixed in v1.2.1.
 
 `generateColors()` (in `script.js`) dispatches based on `currentPalette` — it isn't itself in `logic.js` since it reads that global.
 
@@ -69,14 +69,16 @@ Events registered on the canvas: `mousedown` (sets `isDrawing = true` and draws,
 
 - `pushUndoState()` — snapshots `pixels` onto `undoStack` (capping it at `MAX_HISTORY`), and clears `redoStack` (a new action invalidates any available redo)
 - `undo()` / `redo()` — pop a snapshot from one stack, push the *current* state onto the other, then `restorePixels()` the popped snapshot
-- `restorePixels(snapshot)` — calls `clearCanvas()` (which resets `pixels` to `{}` and redraws the blank grid), then re-assigns `pixels` from the snapshot and redraws every entry with `drawPixel()`
+- `restorePixels(snapshot)` — a thin wrapper around `renderPixels(snapshot)` (see below)
 - `updateUndoRedoButtons()` — enables/disables `#undoBtn`/`#redoBtn` based on whether their stack is empty; called after every push/undo/redo and once at startup
 - `clearHistory()` — empties both stacks; called whenever the grid size changes (manually via `changeGridSize()`, or implicitly via a same-session `importDrawing()`/`loadSharedDrawingFromURL()` that sets a different `gridSize`), since older snapshots' `"x,y"` keys wouldn't be meaningful against a different grid
+
+`renderPixels(pixelsObj)` — the single shared "commit this pixels object to the canvas" primitive: calls `clearCanvas()` (resets `pixels` to `{}` and redraws the blank grid), then redraws every entry of `pixelsObj` with `drawPixel()`, which repopulates the global `pixels` one key at a time as a side effect. Since `clearCanvas()` always starts from a fresh `{}`, the resulting `pixels` is never the same object reference as whatever was passed in — so mutating it later (e.g. drawing a new stroke) can never retroactively corrupt a snapshot still sitting in `undoStack`/`redoStack`, or the caller's original object. Reused by `restorePixels()`, `loadAutosavedState()`, `applyImportedDrawing()`, and `loadSharedDrawingFromURL()` (see their sections below) — the one loop that redraws a `pixels`-shaped object onto the canvas, instead of four near-identical copies of it (deduplicated in v1.2.1).
 
 `pushUndoState()` call sites — each represents one undoable action:
 - `mousedown` on the canvas, once per stroke (not per `drawPixel()` call during a drag) — only while `currentTool === "brush"`, since other tools don't mutate `pixels` from this handler
 - `floodFill()`, once per fill — but only *after* confirming the fill will actually change something (`targetColor !== fillColor`), so clicking the bucket on an already-matching area doesn't waste a history slot
-- `clearAll()` (bound to the "Cancella tutto" button; the raw `clearCanvas()` is still used internally, without pushing history, by `changeGridSize()`, `restorePixels()`, and `importDrawing()`)
+- `clearAll()` (bound to the "Cancella tutto" button; the raw `clearCanvas()` is still used internally, without pushing history, by `changeGridSize()` and `renderPixels()`)
 - `importDrawing()`, only when the imported `gridSize` matches the current one (otherwise `clearHistory()` runs instead, see above)
 
 Keyboard shortcuts: `Ctrl+Z` (or `Cmd+Z` on Mac) for undo, `Ctrl+Y` or `Ctrl+Shift+Z` for redo, handled by a `keydown` listener on `document`.
@@ -121,7 +123,7 @@ This is a small scaffold meant to grow: adding another tool means adding an `<op
 1. calls `clearHistory()` if `newGridSize` differs from the current `gridSize`, otherwise `pushUndoState()` (see "Undo / redo" above)
 2. restores `gridSize`, `pixelSize`, and the UI select
 3. if `palette` is given, restores it and calls `initColorPalette()`
-4. calls `clearCanvas()` then redraws every pixel from `validPixels` with `drawPixel()`
+4. calls `renderPixels(validPixels)` (see "Undo / redo" above)
 5. calls `saveState()` (see "Autosave" below)
 
 ### XML export / import

@@ -83,35 +83,56 @@ function generateEGAColors() {
 
 // Palette VGA (256 colori standard)
 function generateVGAColors() {
+    const seen = new Set();
     const colors = [];
 
+    // Aggiunge un colore solo se non è già presente (es. nero e bianco
+    // compaiono sia tra i colori CGA sia tra le gradazioni di grigio sia
+    // tra i colori web-safe) e solo finché non abbiamo raggiunto 256 colori
+    function pushUnique(r, g, b) {
+        if (colors.length >= 256) return;
+        const color = `rgb(${r},${g},${b})`;
+        if (seen.has(color)) return;
+        seen.add(color);
+        colors.push(color);
+    }
+
     // Prime 16 colori CGA standard
-    colors.push(...generateCGAColors());
+    for (const color of generateCGAColors()) {
+        const [, r, g, b] = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(color);
+        pushUnique(Number(r), Number(g), Number(b));
+    }
 
     // 16 gradazioni di grigio
     for (let i = 0; i < 16; i++) {
         const val = Math.floor((i * 255) / 15);
-        colors.push(`rgb(${val},${val},${val})`);
+        pushUnique(val, val, val);
     }
 
     // 216 colori RGB (6x6x6)
     const levels = [0, 51, 102, 153, 204, 255];
-    for (let r of levels) {
-        for (let g of levels) {
-            for (let b of levels) {
-                if (colors.length < 256) {
-                    colors.push(`rgb(${r},${g},${b})`);
-                }
+    for (const r of levels) {
+        for (const g of levels) {
+            for (const b of levels) {
+                pushUnique(r, g, b);
             }
         }
     }
 
-    // Riempi eventuali spazi rimanenti con nero
-    while (colors.length < 256) {
-        colors.push("rgb(0,0,0)");
+    // Le tre famiglie sopra si sovrappongono abbastanza da produrre solo
+    // circa 238 colori distinti, non 256: completiamo con una griglia più
+    // fine (livelli scelti apposta per non coincidere con quelli usati
+    // sopra) invece di riempire gli slot avanzati ripetendo il nero
+    const fineLevels = [25, 76, 127, 178, 229];
+    for (const r of fineLevels) {
+        for (const g of fineLevels) {
+            for (const b of fineLevels) {
+                pushUnique(r, g, b);
+            }
+        }
     }
 
-    return colors.slice(0, 256);
+    return colors;
 }
 
 // Rende sicura una stringa da inserire in un valore di attributo XML

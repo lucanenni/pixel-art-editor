@@ -102,6 +102,14 @@ describe("palette generators", () => {
         for (const color of vga) assert.equal(isValidRGBColor(color), true);
         assert.deepEqual(vga.slice(0, 16), cga);
     });
+
+    test("generateVGAColors contiene 256 colori tutti distinti", () => {
+        // CGA, scala di grigi e web-safe si sovrappongono in alcuni punti
+        // (es. nero e bianco compaiono in più di una famiglia): la palette
+        // deve comunque risultare di 256 colori diversi, non ripetuti
+        const vga = generateVGAColors();
+        assert.equal(new Set(vga).size, 256);
+    });
 });
 
 describe("escapeXMLAttribute", () => {
