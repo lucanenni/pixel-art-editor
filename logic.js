@@ -81,6 +81,45 @@ function generateEGAColors() {
     return colors;
 }
 
+// Sceglie, tra i colori candidati, quelli più lontani (distanza euclidea
+// nello spazio RGB) dai colori già esistenti — e tra loro stessi via via
+// che vengono scelti (selezione golosa "farthest point"). Usato per
+// riempire gli ultimi posti della palette VGA (vedi sotto) con colori il
+// più possibile sparsi, invece che ammassati in un angolo dello spazio
+// colore vicino a colori già presenti.
+function pickFarthestColors(existingColors, candidateColors, count) {
+    function parseRGB(color) {
+        const [, r, g, b] = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(color);
+        return [Number(r), Number(g), Number(b)];
+    }
+
+    const chosen = [];
+    const chosenRGB = existingColors.map(parseRGB);
+    const pool = candidateColors.map((color) => ({ color, rgb: parseRGB(color) }));
+
+    while (chosen.length < count && pool.length > 0) {
+        let bestIndex = 0;
+        let bestDistance = -1;
+        for (let i = 0; i < pool.length; i++) {
+            const [r, g, b] = pool[i].rgb;
+            let minDistance = Infinity;
+            for (const [er, eg, eb] of chosenRGB) {
+                const distance = (r - er) ** 2 + (g - eg) ** 2 + (b - eb) ** 2;
+                if (distance < minDistance) minDistance = distance;
+            }
+            if (minDistance > bestDistance) {
+                bestDistance = minDistance;
+                bestIndex = i;
+            }
+        }
+        const picked = pool.splice(bestIndex, 1)[0];
+        chosen.push(picked.color);
+        chosenRGB.push(picked.rgb);
+    }
+
+    return chosen;
+}
+
 // Palette VGA (256 colori standard)
 function generateVGAColors() {
     const seen = new Set();
@@ -120,15 +159,26 @@ function generateVGAColors() {
     }
 
     // Le tre famiglie sopra si sovrappongono abbastanza da produrre solo
-    // circa 238 colori distinti, non 256: completiamo con una griglia più
-    // fine (livelli scelti apposta per non coincidere con quelli usati
-    // sopra) invece di riempire gli slot avanzati ripetendo il nero
-    const fineLevels = [25, 76, 127, 178, 229];
-    for (const r of fineLevels) {
-        for (const g of fineLevels) {
-            for (const b of fineLevels) {
-                pushUnique(r, g, b);
+    // circa 238 colori distinti, non 256: completiamo gli slot mancanti
+    // scegliendo, da una griglia RGB più fitta (livelli scelti apposta per
+    // non coincidere con quelli usati sopra), i colori più lontani da
+    // quelli già presenti — invece di prendere semplicemente i primi
+    // trovati in ordine di scansione, che finirebbero ammassati in un
+    // angolo dello spazio colore e percettivamente troppo simili tra loro
+    if (colors.length < 256) {
+        const fineLevels = [16, 48, 80, 112, 144, 176, 208, 240];
+        const candidates = [];
+        for (const r of fineLevels) {
+            for (const g of fineLevels) {
+                for (const b of fineLevels) {
+                    const color = `rgb(${r},${g},${b})`;
+                    if (!seen.has(color)) candidates.push(color);
+                }
             }
+        }
+        for (const color of pickFarthestColors(colors, candidates, 256 - colors.length)) {
+            colors.push(color);
+            seen.add(color);
         }
     }
 
@@ -234,6 +284,7 @@ if (typeof module !== "undefined" && module.exports) {
         generateCGAColors,
         generateEGAColors,
         generateVGAColors,
+        pickFarthestColors,
         paletteColorsFor,
         findNearestColor,
         encodePixelsCompact,
