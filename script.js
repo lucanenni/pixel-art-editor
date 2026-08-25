@@ -148,9 +148,16 @@ function initColorPalette() {
     const colors = generateColors();
 
     colors.forEach((color) => {
-        const swatch = document.createElement("div");
+        // <button>, non <div>: raggiungibile e attivabile da tastiera
+        // (Tab + Invio/Spazio) senza bisogno di codice aggiuntivo
+        const swatch = document.createElement("button");
+        swatch.type = "button";
         swatch.className = "color-swatch";
         swatch.style.backgroundColor = color;
+        swatch.dataset.color = color; // usato per confronto esatto in updateCurrentColor()
+        swatch.title = color;
+        swatch.setAttribute("aria-label", `Colore ${color}`);
+        swatch.setAttribute("aria-pressed", "false");
         swatch.onclick = () => selectColor(color);
         palette.appendChild(swatch);
     });
@@ -164,7 +171,15 @@ function selectColor(color) {
 }
 
 function updateCurrentColor() {
-    document.getElementById("currentColor").style.backgroundColor = currentColor;
+    const currentColorEl = document.getElementById("currentColor");
+    currentColorEl.style.backgroundColor = currentColor;
+    currentColorEl.setAttribute("aria-label", currentColor);
+
+    // Tiene sincronizzato aria-pressed sugli swatch col colore attuale, per
+    // chi naviga da tastiera o con uno screen reader
+    document.querySelectorAll("#colorPalette .color-swatch").forEach((swatch) => {
+        swatch.setAttribute("aria-pressed", String(swatch.dataset.color === currentColor));
+    });
 }
 
 // Disegna la griglia
@@ -338,6 +353,10 @@ function clearCanvas() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     pixels = {};
     drawGrid();
+    // clearCanvas() viene sempre chiamata subito dopo che gridSize è stato
+    // aggiornato (resize manuale, import, QR, autosalvataggio), quindi è il
+    // punto giusto per tenere sincronizzata la descrizione per screen reader
+    canvas.setAttribute("aria-label", `Area di disegno, griglia ${gridSize} per ${gridSize} celle`);
 }
 
 // Pulisce il canvas e ridisegna ogni pixel dell'oggetto dato ("x,y" -> colore).
@@ -405,6 +424,10 @@ function setTool(tool) {
 // soglia (in caratteri dell'URL) passiamo al fallback "solo metadati".
 const QR_URL_LENGTH_LIMIT = 2000;
 
+// Elemento che aveva il focus prima dell'apertura della modale QR, per
+// poterlo ripristinare alla chiusura
+let qrModalTrigger = null;
+
 function showQRCode() {
     const modal = document.getElementById("qrModal");
     const qrcodeDiv = document.getElementById("qrcode");
@@ -449,12 +472,37 @@ function showQRCode() {
             "Scansiona il codice per aprire il disegno e scaricarlo automaticamente come immagine.";
     }
 
+    // Ricorda chi ha aperto la modale, per restituirgli il focus alla
+    // chiusura, e sposta subito il focus dentro la modale (unico elemento
+    // interattivo al suo interno: il pulsante di chiusura)
+    qrModalTrigger = document.activeElement;
     modal.style.display = "block";
+    document.getElementById("qrModalCloseBtn").focus();
 }
 
 function closeQRModal() {
     document.getElementById("qrModal").style.display = "none";
+    if (qrModalTrigger) {
+        qrModalTrigger.focus();
+        qrModalTrigger = null;
+    }
 }
+
+// Chiude la modale QR con Esc, e mantiene il focus al suo interno mentre è
+// aperta: l'unico elemento raggiungibile da tastiera è il pulsante di
+// chiusura, quindi Tab/Shift+Tab lo rifocalizzano invece di uscire dietro
+// la modale
+document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("qrModal");
+    if (modal.style.display !== "block") return;
+
+    if (e.key === "Escape") {
+        closeQRModal();
+    } else if (e.key === "Tab") {
+        e.preventDefault();
+        document.getElementById("qrModalCloseBtn").focus();
+    }
+});
 
 // Se la pagina è stata aperta scansionando un QR code (parametro ?data=
 // nella query string), ricostruisce il disegno codificato e ne avvia

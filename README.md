@@ -137,6 +137,14 @@ Import applies the exact same validation as JSON (grid size, palette, per-pixel 
 - **QR code sharing** encodes the drawing's data (grid size, palette, pixels) in the URL, not the image itself — very large or highly detailed drawings can still exceed a QR code's data capacity, in which case a metadata-only code is generated (see above). This is an inherent limit of QR codes, not something a client-only app can fix.
 - **Undo/redo history is reset on grid size changes** (including importing a drawing with a different size), since saved snapshots' coordinates wouldn't be meaningful against a different grid.
 - **Autosave is per-browser, not synced anywhere**: it uses `localStorage`, so it doesn't follow you to a different browser or device, and is lost if the browser's site data is cleared.
+- **Drawing needs a mouse or touch**: every control (grid/palette/tool selection, color swatches, all buttons, the QR dialog) is fully keyboard-accessible, but there's no keyboard-driven way to move a cursor around the canvas and paint a cell — only pointer input can draw.
+
+## Accessibility
+
+- Every color swatch is a real `<button>`, reachable with Tab and pickable with Enter/Space, with a visible focus outline and `aria-pressed` reflecting the current selection.
+- The grid size, palette, and tool controls use `<label for="...">`, not just a nearby heading, so screen readers announce them correctly.
+- The canvas and the current-color indicator carry a live `aria-label` describing what they show (grid size, selected color).
+- The QR code dialog behaves like a proper modal: opening it moves focus in and remembers where to return it, `Esc` closes it, and Tab can't escape it while it's open.
 
 ## License
 

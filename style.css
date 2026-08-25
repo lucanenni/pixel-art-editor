@@ -72,7 +72,9 @@ h1 {
     border-radius: 10px;
 }
 
-.control-group h3 {
+.control-group h3,
+.control-group label {
+    display: block;
     margin-bottom: 10px;
     color: #555;
     font-size: 16px;
@@ -96,6 +98,7 @@ select:hover {
 select:focus {
     outline: none;
     border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.35);
 }
 
 .current-color {
@@ -115,11 +118,19 @@ select:focus {
     width: 100%;
 }
 
+/* Gli swatch sono <button>: azzero lo stile generico dei button qui sotto
+   (padding/min-width/flex/box-shadow) per farli tornare dei quadratini */
 .color-swatch {
     width: 100%;
     aspect-ratio: 1;
+    min-width: 0;
+    flex: none;
+    padding: 0;
+    margin: 0;
     cursor: pointer;
     border: 1px solid #ddd;
+    border-radius: 0;
+    box-shadow: none;
     transition: transform 0.1s;
 }
 
@@ -127,6 +138,18 @@ select:focus {
     transform: scale(1.2);
     border: 2px solid #333;
     z-index: 10;
+}
+
+.color-swatch:focus-visible {
+    outline: 3px solid #667eea;
+    outline-offset: 1px;
+    z-index: 10;
+}
+
+/* Colore attualmente selezionato, per chi naviga da tastiera */
+.color-swatch[aria-pressed="true"] {
+    border: 2px solid #333;
+    box-shadow: 0 0 0 2px #667eea;
 }
 
 .buttons {
@@ -282,10 +305,20 @@ button:disabled:hover {
     font-size: 14px;
 }
 
+/* Anche il pulsante di chiusura è un <button>: stesso azzeramento dello
+   stile generico dei button */
 .close {
     position: absolute;
     right: 15px;
     top: 15px;
+    min-width: 0;
+    flex: none;
+    padding: 0;
+    margin: 0;
+    background: none;
+    box-shadow: none;
+    border-radius: 4px;
+    line-height: 1;
     color: #aaa;
     font-size: 28px;
     font-weight: bold;
@@ -295,6 +328,11 @@ button:disabled:hover {
 
 .close:hover {
     color: #333;
+}
+
+.close:focus-visible {
+    outline: 3px solid #667eea;
+    outline-offset: 2px;
 }
 
 #qrcode {

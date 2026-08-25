@@ -41,7 +41,7 @@ Three generator functions (in `logic.js`, unit-tested — see "File split" above
 `initColorPalette()`:
 1. clears `#colorPalette` (`innerHTML = ''`) — **essential**, without this colors pile up on every palette change
 2. calls `generateColors()`
-3. creates one `div.color-swatch` per color with `onclick = () => selectColor(color)`
+3. creates one `button.color-swatch` per color (a real `<button>`, not a `<div>` — see "Accessibility" below) with `onclick = () => selectColor(color)`, `dataset.color` set to the exact color string (used for comparison, since reading `style.backgroundColor` back can come out re-serialized with different whitespace than what was set), and `aria-label`/`aria-pressed`/`title`
 
 ## Drawing on the grid
 
@@ -154,6 +154,7 @@ The QR code does **not** contain the PNG image (too large for a QR code's capaci
 2. serializes it and encodes it as base64 + URL-encoding
 3. if the resulting URL exceeds `QR_URL_LENGTH_LIMIT` (~2000 characters — the practical reliability limit for scanning), it generates a QR code with text metadata only (no working URL) instead, and warns the user via `#qrMessage`
 4. otherwise it generates a QR code with the full URL, using the `QRCode` library (CDN)
+5. remembers `document.activeElement` in `qrModalTrigger` (to restore focus on close), shows the modal, and moves focus to `#qrModalCloseBtn` — see "Accessibility" below for why
 
 On page load, `loadSharedDrawingFromURL()` checks for a `?data=` query parameter: if present, it decodes it, validates `g`/`p`/`d` the same way `importDrawing()` does (`VALID_GRID_SIZES`, `VALID_PALETTES`, `filterValidPixels()` — the URL is just as untrusted as a hand-edited import file), calls `clearHistory()` (a freshly loaded drawing has no undo history), restores the state (grid/palette/pixels), redraws it, calls `saveState()`, and after a short `setTimeout` (to let the render complete) automatically calls `downloadImage()`, then cleans up the URL with `history.replaceState` to avoid repeated downloads on a page refresh. It returns `true` if it actually loaded something, `false` otherwise (no `?data=`, or invalid data) — the startup sequence uses this to decide whether to fall back to the autosave (see below).
 
@@ -167,6 +168,18 @@ The drawing persists across page loads via `localStorage`, under a single fixed 
 - `loadAutosavedState()` is the mirror of `importDrawing()`'s restore logic (same `VALID_GRID_SIZES`/`VALID_PALETTES`/`filterValidPixels()` validation), reading from `localStorage` instead of a file. Returns `true`/`false` depending on whether it actually restored something.
 - Called once at startup, but **only if `loadSharedDrawingFromURL()` returned `false`** — an opened QR share link always wins over the autosave for that page load, and its state is then saved as the new autosave.
 - Called after every mutating action: end of a brush stroke (`endStroke()`, shared by mouse and touch), `floodFill()`, `clearAll()`, `changeGridSize()`, `changePalette()`, `undo()`/`redo()`, and a successful `importDrawing()`. Each of these already has its own natural "one action" boundary (see "Undo / redo" above for the equivalent reasoning on stroke grouping), so this doesn't mean one write per pixel.
+
+## Accessibility
+
+Added in v1.2.2, after a pass that found the color swatches were entirely unreachable by keyboard and the form controls weren't properly labeled:
+
+- **Color swatches** (`initColorPalette()`) are `<button>` elements, not `<div>`s — this alone makes them focusable (Tab) and activatable (Enter/Space) for free, no custom key handling needed. Each has `aria-label="Colore ${color}"`, `title="${color}"`, and `dataset.color` (an exact copy of the color string, used instead of re-reading `style.backgroundColor` back — the CSSOM can re-serialize that with different whitespace than what was set, e.g. `"rgb(255, 0, 0)"` vs `"rgb(255,0,0)"`, which would break an exact-string comparison).
+- **`aria-pressed`** on every swatch is kept in sync with `currentColor` inside `updateCurrentColor()` (called by both `initColorPalette()` and `selectColor()`), by comparing each swatch's `dataset.color` against the current color. `#currentColor` (the "selected color" preview box) gets `role="img"` and an `aria-label` set to the color string for the same reason.
+- **`#pixelCanvas`'s `aria-label`** ("Area di disegno, griglia N per N celle") is set at the end of `clearCanvas()`, which every gridSize-changing path already calls after updating `gridSize` — so it never needs a separate call site of its own to stay in sync (see "Undo / redo" above for the same reasoning applied to `renderPixels()`).
+- **Grid size / palette / tool `<select>`s** use `<label for="...">` in `index.html` instead of a nearby `<h3>`, which a screen reader doesn't associate with the control. `.control-group h3, .control-group label` share one CSS rule so both still look the same; `#currentColor` and `#colorPalette` (which aren't form controls) keep a heading, referenced via `aria-labelledby` instead.
+- **The QR modal** (`showQRCode()`/`closeQRModal()`) is a minimal modal-dialog implementation: `role="dialog"` + `aria-modal="true"` + `aria-labelledby` on `.modal-content`; the close control is a real `<button id="qrModalCloseBtn">` (previously a `<span>` with only `onclick`, unreachable by keyboard); opening it saves `document.activeElement` into `qrModalTrigger` and focuses the close button; a dedicated `keydown` listener closes it on `Escape` and, since the close button is the *only* focusable element inside, simply re-focuses it on every `Tab` while the modal is open (`e.preventDefault()`) instead of implementing a full multi-element focus trap; closing it (`Escape`, the close button, or the backdrop) restores focus to `qrModalTrigger`.
+- Buttons that were already plain `<button>` elements (all the toolbar actions, the file-import triggers) needed no changes — they were keyboard-accessible from the start.
+- **Not done**: the canvas itself has no keyboard-driven drawing interaction (no cursor-move-and-paint via arrow keys) — only its `aria-label` was added, so a screen reader user knows what it is without being able to operate it. Documented as a known limitation rather than solved; would need a real "keyboard cursor" mode to fix properly.
 
 ## Points of attention for future changes
 
