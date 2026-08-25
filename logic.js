@@ -135,6 +135,83 @@ function generateVGAColors() {
     return colors;
 }
 
+// Ritorna l'array di colori della palette indicata (stesso dispatch di
+// generateColors() in script.js, ma parametrizzato: qui non possiamo
+// leggere la variabile globale currentPalette, e questa versione pura è
+// anche riusabile per decodificare un disegno con una palette diversa da
+// quella attualmente attiva nell'app, es. durante il caricamento da QR).
+function paletteColorsFor(paletteName) {
+    switch (paletteName) {
+        case "cga":
+            return generateCGAColors();
+        case "ega":
+            return generateEGAColors();
+        case "vga":
+            return generateVGAColors();
+        default:
+            return generateVGAColors();
+    }
+}
+
+// Trova, tra i colori dati, quello più vicino al colore indicato (distanza
+// euclidea nello spazio RGB). Usato dal contagocce per adattare un colore
+// prelevato da fuori (es. da tutto lo schermo tramite l'API EyeDropper,
+// che può restituire qualunque colore esista sullo schermo) alla palette
+// attualmente in uso, così il disegno resta coerente con la palette
+// scelta invece di introdurre colori arbitrari.
+function findNearestColor(targetColor, paletteColors) {
+    const targetMatch = RGB_COLOR_PATTERN.exec(targetColor);
+    if (!targetMatch) return paletteColors[0];
+    const [tr, tg, tb] = targetMatch.slice(1, 4).map(Number);
+
+    let closest = paletteColors[0];
+    let closestDistance = Infinity;
+    for (const color of paletteColors) {
+        const match = RGB_COLOR_PATTERN.exec(color);
+        const [r, g, b] = match.slice(1, 4).map(Number);
+        const distance = (r - tr) ** 2 + (g - tg) ** 2 + (b - tb) ** 2;
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closest = color;
+        }
+    }
+    return closest;
+}
+
+// Codifica pixels in una forma compatta per la condivisione via QR/URL,
+// dove lo spazio è limitato: se il colore di un pixel è esattamente uno
+// dei colori della palette indicata (il caso comune — CGA/EGA/VGA hanno
+// solo 16/64/256 colori possibili), salva il suo indice numerico invece
+// della stringa "rgb(r,g,b)" per intero, molto più compatto (es. "7"
+// invece di "rgb(170,170,170)"). Se il colore non è nella palette (raro:
+// un vecchio disegno con palette cambiata, o dati non standard), salva
+// comunque la stringa colore così com'è, per non perdere il dato.
+function encodePixelsCompact(pixels, paletteName) {
+    const paletteColors = paletteColorsFor(paletteName);
+    const compact = {};
+    for (const key in pixels) {
+        const index = paletteColors.indexOf(pixels[key]);
+        compact[key] = index === -1 ? pixels[key] : index;
+    }
+    return compact;
+}
+
+// Operazione inversa: da pixels in forma compatta (indici numerici e/o
+// stringhe colore, vedi sopra) a un normale oggetto pixels con valori
+// "rgb(r,g,b)". Un indice fuori range (dati corrotti o manomessi) produce
+// `undefined`, che il successivo filterValidPixels scarta correttamente
+// perché non è una stringa colore valida — nessuna validazione aggiuntiva
+// necessaria qui.
+function decodePixelsCompact(compactPixels, paletteName) {
+    const paletteColors = paletteColorsFor(paletteName);
+    const pixels = {};
+    for (const key in compactPixels) {
+        const value = compactPixels[key];
+        pixels[key] = typeof value === "number" ? paletteColors[value] : value;
+    }
+    return pixels;
+}
+
 // Rende sicura una stringa da inserire in un valore di attributo XML
 function escapeXMLAttribute(value) {
     return String(value)
@@ -157,6 +234,10 @@ if (typeof module !== "undefined" && module.exports) {
         generateCGAColors,
         generateEGAColors,
         generateVGAColors,
+        paletteColorsFor,
+        findNearestColor,
+        encodePixelsCompact,
+        decodePixelsCompact,
         escapeXMLAttribute
     };
 }

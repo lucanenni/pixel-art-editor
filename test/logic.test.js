@@ -14,6 +14,10 @@ const {
     generateCGAColors,
     generateEGAColors,
     generateVGAColors,
+    paletteColorsFor,
+    findNearestColor,
+    encodePixelsCompact,
+    decodePixelsCompact,
     escapeXMLAttribute
 } = require("../logic.js");
 
@@ -126,6 +130,69 @@ describe("escapeXMLAttribute", () => {
 
     test("converte in stringa i valori non stringa", () => {
         assert.equal(escapeXMLAttribute(42), "42");
+    });
+});
+
+describe("findNearestColor", () => {
+    test("un colore già presente nella palette torna invariato", () => {
+        const cga = generateCGAColors();
+        assert.equal(findNearestColor(cga[4], cga), cga[4]);
+    });
+
+    test("sceglie il colore più vicino per distanza euclidea", () => {
+        const palette = ["rgb(0,0,0)", "rgb(255,255,255)"];
+        assert.equal(findNearestColor("rgb(10,10,10)", palette), "rgb(0,0,0)");
+        assert.equal(findNearestColor("rgb(240,240,240)", palette), "rgb(255,255,255)");
+    });
+
+    test("un colore non in formato valido ricade sul primo della palette", () => {
+        assert.equal(findNearestColor("non-un-colore", ["rgb(1,2,3)", "rgb(4,5,6)"]), "rgb(1,2,3)");
+    });
+});
+
+describe("paletteColorsFor", () => {
+    test("ritorna la stessa palette dei rispettivi generatori", () => {
+        assert.deepEqual(paletteColorsFor("cga"), generateCGAColors());
+        assert.deepEqual(paletteColorsFor("ega"), generateEGAColors());
+        assert.deepEqual(paletteColorsFor("vga"), generateVGAColors());
+    });
+
+    test("un nome sconosciuto ricade su VGA, come generateColors() in script.js", () => {
+        assert.deepEqual(paletteColorsFor("qualcosa-che-non-esiste"), generateVGAColors());
+    });
+});
+
+describe("encodePixelsCompact / decodePixelsCompact", () => {
+    test("un colore presente in palette diventa il suo indice numerico", () => {
+        const cga = generateCGAColors();
+        const pixels = { "0,0": cga[0], "1,1": cga[15] };
+        const compact = encodePixelsCompact(pixels, "cga");
+        assert.deepEqual(compact, { "0,0": 0, "1,1": 15 });
+    });
+
+    test("un colore fuori palette resta salvato come stringa", () => {
+        const pixels = { "0,0": "rgb(1,2,3)" };
+        const compact = encodePixelsCompact(pixels, "cga");
+        assert.deepEqual(compact, { "0,0": "rgb(1,2,3)" });
+    });
+
+    test("round-trip: encode poi decode ritorna i colori originali", () => {
+        const vga = generateVGAColors();
+        const pixels = { "0,0": vga[0], "3,4": vga[100], "7,7": vga[255] };
+        const compact = encodePixelsCompact(pixels, "vga");
+        const decoded = decodePixelsCompact(compact, "vga");
+        assert.deepEqual(decoded, pixels);
+    });
+
+    test("decodePixelsCompact lascia passare le stringhe colore invariate (compatibilità con link vecchi)", () => {
+        const pixels = { "0,0": "rgb(255,0,0)", "1,1": "rgb(0,255,0)" };
+        assert.deepEqual(decodePixelsCompact(pixels, "cga"), pixels);
+    });
+
+    test("un indice fuori range decodifica a undefined, che filterValidPixels scarta", () => {
+        const decoded = decodePixelsCompact({ "0,0": 999 }, "cga");
+        assert.equal(decoded["0,0"], undefined);
+        assert.deepEqual(filterValidPixels(decoded, 8), {});
     });
 });
 

@@ -1,6 +1,6 @@
 {
   "name": "pixel-art-editor",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "private": true,
   "description": "A small, dependency-free browser pixel art editor built as a teaching tool.",
   "license": "MIT",

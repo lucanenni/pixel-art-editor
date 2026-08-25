@@ -129,16 +129,7 @@ function loadAutosavedState() {
 
 // Genera colori in base alla palette selezionata
 function generateColors() {
-    switch (currentPalette) {
-        case "cga":
-            return generateCGAColors();
-        case "ega":
-            return generateEGAColors();
-        case "vga":
-            return generateVGAColors();
-        default:
-            return generateVGAColors();
-    }
+    return paletteColorsFor(currentPalette);
 }
 
 // Inizializza la palette
@@ -270,7 +261,7 @@ function handleDraw(e) {
     if (currentTool === "eyedropper") {
         if (e.type === "mousemove" || e.type === "touchmove") return;
         const pixelKey = `${x},${y}`;
-        selectColor(pixels[pixelKey] || "rgb(255,255,255)");
+        pickColor(pixels[pixelKey] || "rgb(255,255,255)");
         // Dopo aver prelevato un colore si torna al pennello, pronti a
         // disegnare con quel colore
         setTool("brush");
@@ -433,6 +424,21 @@ function hexToRGB(hex) {
     return `rgb(${r},${g},${b})`;
 }
 
+// Adatta un colore qualunque al più vicino nella palette attualmente
+// selezionata prima di applicarlo: il contagocce può restituire colori
+// fuori dalla palette (in particolare prelevando da tutto lo schermo, che
+// può contenere qualsiasi colore), ma il disegno deve restare coerente
+// con la palette scelta (16/64/256 colori possibili), non introdurne di
+// arbitrari.
+function pickColor(rawColor) {
+    selectColor(findNearestColor(rawColor, generateColors()));
+}
+
+// Mostrato una sola volta a sessione, la prima volta che si sceglie il
+// contagocce: avvisa che il colore prelevato viene adattato alla palette
+// corrente, invece di sorprendere l'utente in silenzio ogni volta.
+let eyedropperNoticeShown = false;
+
 // Contagocce: se il browser supporta l'API nativa EyeDropper, la usa per
 // prelevare un colore da qualsiasi punto dello schermo (non solo dal
 // canvas — anche altre finestre, immagini, ecc.). È supportata solo da
@@ -440,6 +446,13 @@ function hexToRGB(hex) {
 // passa invece alla modalità contagocce "classica" che preleva solo
 // cliccando su una cella del canvas (vedi il branco in handleDraw()).
 async function activateEyedropper() {
+    if (!eyedropperNoticeShown) {
+        eyedropperNoticeShown = true;
+        alert(
+            "Il contagocce adatta il colore prelevato al più vicino disponibile nella palette attuale."
+        );
+    }
+
     if (!window.EyeDropper) {
         setTool("eyedropper");
         return;
@@ -447,7 +460,7 @@ async function activateEyedropper() {
 
     try {
         const result = await new EyeDropper().open();
-        selectColor(hexToRGB(result.sRGBHex));
+        pickColor(hexToRGB(result.sRGBHex));
     } catch (error) {
         // L'utente ha annullato (es. con Esc) o il prelievo non è
         // riuscito: non c'è nulla da fare, si resta semplicemente sul
@@ -476,8 +489,16 @@ function showQRCode() {
     // Il PNG del canvas è troppo grande per un QR code: codifichiamo invece
     // solo i dati del disegno (griglia, palette, pixel), in forma compatta,
     // dentro l'URL della pagina stessa. Chi scansiona il codice riapre
-    // questa pagina, che ricostruisce il disegno da quei dati.
-    const compactData = { g: gridSize, p: currentPalette, d: pixels };
+    // questa pagina, che ricostruisce il disegno da quei dati (vedi
+    // loadSharedDrawingFromURL). encodePixelsCompact salva l'indice del
+    // colore nella palette invece della stringa "rgb(r,g,b)" per intero,
+    // molto più compatto — importante perché anche una griglia piccola ma
+    // completamente colorata può altrimenti superare la soglia sotto.
+    const compactData = {
+        g: gridSize,
+        p: currentPalette,
+        d: encodePixelsCompact(pixels, currentPalette)
+    };
     const encodedData = encodeURIComponent(btoa(JSON.stringify(compactData)));
     const shareURL = `${location.origin}${location.pathname}?data=${encodedData}`;
 
@@ -505,7 +526,7 @@ function showQRCode() {
             correctLevel: QRCode.CorrectLevel.L
         });
         qrMessage.textContent =
-            "Scansiona il codice per aprire il disegno e scaricarlo automaticamente come immagine.";
+            "Scansiona il codice per aprire il disegno su un altro dispositivo — potrai poi salvarlo con \"Scarica immagine\".";
     }
 
     // Ricorda chi ha aperto la modale, per restituirgli il focus alla
@@ -560,7 +581,13 @@ function loadSharedDrawingFromURL() {
         const newGridSize = Number(compactData.g);
         if (!VALID_GRID_SIZES.includes(newGridSize)) return false;
         if (compactData.p && !VALID_PALETTES.includes(compactData.p)) return false;
-        const validPixels = filterValidPixels(compactData.d, newGridSize);
+
+        // Riporta gli indici (o le stringhe colore, per compatibilità con
+        // link generati da versioni precedenti) alla forma normale
+        // "rgb(r,g,b)" prima di validare, così filterValidPixels lavora
+        // esattamente come per import JSON/XML e autosalvataggio
+        const decodedPixels = decodePixelsCompact(compactData.d, compactData.p || currentPalette);
+        const validPixels = filterValidPixels(decodedPixels, newGridSize);
 
         // Disegno caricato da zero: nessuna cronologia precedente ha senso
         clearHistory();
