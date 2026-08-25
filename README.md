@@ -35,7 +35,7 @@ Built as a teaching tool for vocational school students (graphic design and IT t
 
 ## Getting started
 
-No build step and no dependencies to install to run the app — it's plain HTML/CSS/JS. The only external dependency is the [qrcodejs](https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js) library, loaded from a CDN. `package.json` exists only to give the test suite an `npm test` shortcut around Node's built-in test runner — there's nothing to `npm install`.
+No build step and no dependencies to install to run the app — it's plain HTML/CSS/JS. The only external dependency is the [qrcodejs](https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js) library, loaded from a CDN with a pinned Subresource Integrity hash (so a tampered CDN response fails to execute instead of running silently). `package.json` exists only to give the test suite an `npm test` shortcut around Node's built-in test runner — there's nothing to `npm install`.
 
 Simplest option — just open the file in a browser:
 
@@ -126,7 +126,8 @@ Import applies the exact same validation as JSON (grid size, palette, per-pixel 
 
 ## Technical notes
 
-- `pixels` (an object keyed `"x,y"` → CSS color string) is the single source of truth for the drawing; the canvas is just its visual rendering. Anything that needs to restore a drawing (import, future features) should redraw from `pixels`, following the pattern already used in `importDrawing`.
+- `pixels` (an object keyed `"x,y"` → `"rgb(r,g,b)"` string) is the single source of truth for the drawing; the canvas is just its visual rendering. Every restore path (undo/redo, JSON/XML import, QR share, autosave) redraws from `pixels` through one shared helper, `renderPixels()`, instead of four separate copies of the same loop.
+- Colors are always stored/compared as `"rgb(r,g,b)"` strings, never CSS hex (`"#rrggbb"`) — `currentColor` starts as `"rgb(0,0,0)"` for this reason, since a hex value would pass through the UI fine but silently fail every later validation check (import, QR, autosave).
 - The canvas has a fixed 512×512px size; `pixelSize` (the on-screen size of one grid cell) is recalculated as `canvas.width / gridSize` whenever the grid size changes.
 - Adding a new palette only requires a new `generateXColors()` function, a `case` in `generateColors()`'s switch, and a new `<option>` in `#paletteSelect`. Adding a new grid size only requires a new `<option>` in `#gridSizeSelect` — no other code changes needed.
 - The drawing is persisted to `localStorage` (see Autosave above) under a single fixed key; nothing else in the app uses browser storage.
@@ -136,10 +137,6 @@ Import applies the exact same validation as JSON (grid size, palette, per-pixel 
 - **QR code sharing** encodes the drawing's data (grid size, palette, pixels) in the URL, not the image itself — very large or highly detailed drawings can still exceed a QR code's data capacity, in which case a metadata-only code is generated (see above). This is an inherent limit of QR codes, not something a client-only app can fix.
 - **Undo/redo history is reset on grid size changes** (including importing a drawing with a different size), since saved snapshots' coordinates wouldn't be meaningful against a different grid.
 - **Autosave is per-browser, not synced anywhere**: it uses `localStorage`, so it doesn't follow you to a different browser or device, and is lost if the browser's site data is cleared.
-
-## Possible future improvements
-
-- XML import/export alongside JSON
 
 ## License
 

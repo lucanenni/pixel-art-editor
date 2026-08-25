@@ -3,7 +3,12 @@ const ctx = canvas.getContext("2d");
 let gridSize = 32;
 let pixelSize = canvas.width / gridSize;
 
-let currentColor = "#000000";
+// Deve sempre essere in formato "rgb(r,g,b)": è lo stesso formato prodotto
+// dalla tavolozza e richiesto da isValidRGBColor() in fase di import/
+// autosalvataggio. Un valore come "#000000" verrebbe scartato in silenzio
+// dal filtro di validazione la prima volta che il disegno viene ricaricato
+// (era un bug: v1.2.1, vedi CHANGELOG).
+let currentColor = "rgb(0,0,0)";
 let isDrawing = false;
 let pixels = {};
 let currentPalette = "vga";
@@ -48,12 +53,7 @@ function updateUndoRedoButtons() {
 
 // Ridisegna il canvas da zero a partire da un'istantanea di pixels
 function restorePixels(snapshot) {
-    clearCanvas(); // azzera pixels e ridisegna sfondo + griglia
-    pixels = { ...snapshot };
-    for (const key in pixels) {
-        const [x, y] = key.split(",").map(Number);
-        drawPixel(x, y, pixels[key]);
-    }
+    renderPixels(snapshot);
 }
 
 function undo() {
@@ -119,13 +119,7 @@ function loadAutosavedState() {
         initColorPalette();
     }
 
-    clearCanvas();
-
-    pixels = filterValidPixels(saved.pixels, gridSize);
-    for (const key in pixels) {
-        const [x, y] = key.split(",").map(Number);
-        drawPixel(x, y, pixels[key]);
-    }
+    renderPixels(filterValidPixels(saved.pixels, gridSize));
 
     return true;
 }
@@ -346,6 +340,18 @@ function clearCanvas() {
     drawGrid();
 }
 
+// Pulisce il canvas e ridisegna ogni pixel dell'oggetto dato ("x,y" -> colore).
+// Unico punto del codice che ricostruisce il disegno da un oggetto pixels:
+// restore da undo/redo, import JSON/XML, QR condiviso e autosalvataggio
+// passano tutti da qui, invece di ripetere lo stesso loop in ognuno.
+function renderPixels(pixelsObj) {
+    clearCanvas(); // azzera pixels e ridisegna sfondo + griglia
+    for (const key in pixelsObj) {
+        const [x, y] = key.split(",").map(Number);
+        drawPixel(x, y, pixelsObj[key]);
+    }
+}
+
 // Wrapper per il pulsante "Cancella tutto": rende l'azione annullabile
 function clearAll() {
     if (Object.keys(pixels).length > 0) pushUndoState();
@@ -485,13 +491,7 @@ function loadSharedDrawingFromURL() {
             initColorPalette();
         }
 
-        clearCanvas();
-
-        pixels = validPixels;
-        for (const key in pixels) {
-            const [x, y] = key.split(",").map(Number);
-            drawPixel(x, y, pixels[key]);
-        }
+        renderPixels(validPixels);
 
         saveState();
 
@@ -578,13 +578,7 @@ function applyImportedDrawing(newGridSize, palette, validPixels) {
         initColorPalette();
     }
 
-    clearCanvas();
-
-    pixels = validPixels;
-    for (const key in pixels) {
-        const [x, y] = key.split(",").map(Number);
-        drawPixel(x, y, pixels[key]);
-    }
+    renderPixels(validPixels);
 
     saveState();
 }
