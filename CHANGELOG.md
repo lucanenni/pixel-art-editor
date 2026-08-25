@@ -86,6 +86,14 @@ Found via an external code review of the v1.2.0 state ([ANALYSIS.md](https://git
 - **Cleanup**: extracted a shared `renderPixels(pixelsObj)` helper (clears the canvas, redraws every entry) and pointed `restorePixels()`, `loadAutosavedState()`, `applyImportedDrawing()`, and `loadSharedDrawingFromURL()` at it, replacing four copies of the same loop.
 - **Hardening**: added Subresource Integrity (`integrity`/`crossorigin`) to the `qrcodejs` CDN `<script>` tag in `index.html`, so a compromised or tampered CDN response would fail to execute instead of running silently. The hash was computed locally and cross-checked byte-for-byte against cdnjs's own published SRI metadata for that exact file/version before being pinned.
 
+## v1.2.2 - Accessibility
+
+- **Keyboard-navigable color swatches**: swatches were unlabeled, unfocusable `<div>`s reachable only with a mouse — keyboard-only users had no way to pick a color at all. They're now `<button>` elements with an `aria-label` (e.g. "Colore rgb(255,0,0)"), reachable with Tab and activated with Enter/Space, with a visible focus outline and `aria-pressed` kept in sync with the currently selected color.
+- **Labeled form controls**: the grid size, palette, and tool `<select>` elements were only associated with a plain `<h3>` heading, which a screen reader doesn't read as their label. Replaced with `<label for="...">`, same visual style.
+- **Described canvas and color swatch**: `#pixelCanvas` now has an `aria-label` reporting the current grid size (e.g. "Area di disegno, griglia 32 per 32 celle"), kept in sync in `clearCanvas()`; `#currentColor` has `role="img"` and an `aria-label` with the current color value; `#colorPalette` has `role="group"` labeled by its heading.
+- **Accessible QR modal**: the close control was a `<span>` with only an `onclick` — not reachable by keyboard at all. It's now a real `<button>`. The dialog itself gained `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` pointing at its title, plus proper focus handling: opening it moves focus to the close button and remembers what triggered it, `Esc` closes it, Tab is trapped inside while it's open, and closing (via `Esc`, the close button, or clicking the backdrop) returns focus to whatever opened it.
+
 ## Known issues
 
 - QR code capacity is still limited: drawings with many colored pixels (especially on large grids) can exceed the ~2000-character threshold and fall back to the metadata-only QR code, which does not itself carry the drawing. This is inherent to QR codes and not fixable client-side.
+- Every control around the canvas is keyboard-accessible (v1.2.2), but drawing on the canvas itself still requires a mouse or touch — there's no keyboard-driven way to move a cursor around the grid and paint a cell.

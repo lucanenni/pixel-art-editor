@@ -12,7 +12,12 @@
 
       <div class="editor-area">
         <div class="canvas-section">
-          <canvas id="pixelCanvas" width="512" height="512"></canvas>
+          <canvas
+            id="pixelCanvas"
+            width="512"
+            height="512"
+            aria-label="Area di disegno, griglia 32 per 32 celle"
+          ></canvas>
           <div class="buttons">
             <button id="undoBtn" class="btn-undo" onclick="undo()" disabled>
               Annulla
@@ -67,11 +72,17 @@
         <div class="right-panel">
           <div class="horizontal-panel">
             <div class="control-group">
-              <h3>Colore</h3>
-              <div id="currentColor" class="current-color"></div>
+              <h3 id="currentColorLabel">Colore</h3>
+              <div
+                id="currentColor"
+                class="current-color"
+                role="img"
+                aria-labelledby="currentColorLabel"
+                aria-label="rgb(0,0,0)"
+              ></div>
             </div>
             <div class="control-group">
-              <h3>Griglia</h3>
+              <label for="gridSizeSelect">Griglia</label>
               <select id="gridSizeSelect" onchange="changeGridSize()">
                 <option value="8">8x8</option>
                 <option value="12">12x12</option>
@@ -81,7 +92,7 @@
               </select>
             </div>
             <div class="control-group">
-              <h3>Palette</h3>
+              <label for="paletteSelect">Palette</label>
               <select id="paletteSelect" onchange="changePalette()">
                 <option value="cga">CGA (16 colori)</option>
                 <option value="ega">EGA (64 colori)</option>
@@ -90,7 +101,7 @@
             </div>
           </div>
           <div class="control-group">
-            <h3>Strumento</h3>
+            <label for="toolSelect">Strumento</label>
             <select id="toolSelect" onchange="changeTool()">
               <option value="brush" selected>Pennello</option>
               <option value="eyedropper">Contagocce</option>
@@ -98,8 +109,12 @@
             </select>
           </div>
           <div class="control-group">
-            <h3>Tavolozza colori</h3>
-            <div id="colorPalette"></div>
+            <h3 id="colorPaletteLabel">Tavolozza colori</h3>
+            <div
+              id="colorPalette"
+              role="group"
+              aria-labelledby="colorPaletteLabel"
+            ></div>
           </div>
         </div>
       </div>
@@ -107,9 +122,23 @@
 
     <!-- Modale per QR Code -->
     <div id="qrModal" class="modal" onclick="closeQRModal()">
-      <div class="modal-content" onclick="event.stopPropagation()">
-        <span class="close" onclick="closeQRModal()">&times;</span>
-        <h2>QR code del tuo disegno</h2>
+      <div
+        class="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="qrModalTitle"
+        onclick="event.stopPropagation()"
+      >
+        <button
+          type="button"
+          id="qrModalCloseBtn"
+          class="close"
+          onclick="closeQRModal()"
+          aria-label="Chiudi"
+        >
+          &times;
+        </button>
+        <h2 id="qrModalTitle">QR code del tuo disegno</h2>
         <div id="qrcode"></div>
         <div id="qrMessage"></div>
       </div>
