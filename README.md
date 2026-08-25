@@ -27,7 +27,7 @@ Built as a teaching tool for vocational school students (graphic design and IT t
   - as a **PNG** image (`Scarica immagine`)
   - as a **JSON** or **XML** file describing the full drawing state (`Esporta JSON` / `Esporta XML`), so it can be reloaded later
 - **Import** a previously exported JSON or XML drawing (`Importa JSON` / `Importa XML`)
-- **QR code sharing** (`Mostra QR code`) — generates a QR code encoding the drawing itself; scanning it reopens the app with the drawing restored and automatically downloads it as a PNG
+- **QR code sharing** (`Mostra QR code`) — generates a QR code encoding the drawing itself; scanning it reopens the app with the drawing restored, ready to save with `Scarica immagine`
 - **Bucket fill** — pick the **Secchiello** (bucket) tool and click to flood-fill a contiguous same-colored area (including the blank background) with the selected color
 - **Undo/redo** (`Annulla`/`Ripeti`, or Ctrl+Z / Ctrl+Y) — steps back and forward through drawing actions
 - **Autosave** — the drawing (grid, palette, pixels) is saved to `localStorage` after every action and restored automatically next time you open the app in the same browser
@@ -68,7 +68,7 @@ npm test
 3. Under **Strumento**, pick the **Contagocce** (eyedropper) icon: in Chrome/Edge this immediately opens the browser's own screen color picker — click anywhere on your screen, in or outside the browser, to grab that color; in other browsers it instead switches to a picking mode where you click a canvas cell (any cell — an undrawn one picks up white). Either way it switches back to **Pennello** (brush) automatically with the picked color selected. Pick the **Secchiello** (bucket) icon to flood-fill a contiguous area (a click, not a drag) instead.
 4. Use **Scarica immagine** to download a PNG snapshot of the canvas (grid lines included), or **Esporta JSON**/**Esporta XML** to save the drawing data for later editing.
 5. Use **Importa JSON**/**Importa XML** to reload a drawing previously exported from this app (either format).
-6. Use **Mostra QR code** to generate a QR code for the current drawing — scanning it (or opening the underlying URL) reopens the app with the drawing restored and downloads it as a PNG automatically. Very large/detailed drawings may exceed the data capacity of a QR code; in that case a metadata-only code is shown instead, with a message suggesting a smaller grid or `Esporta JSON`.
+6. Use **Mostra QR code** to generate a QR code for the current drawing — scanning it (or opening the underlying URL) reopens the app with the drawing restored; a message then points you at **Scarica immagine** to save it (an automatic download used to be attempted here, but browsers increasingly — and silently — block downloads not triggered by a direct click, so it was removed in favor of a real, reliable one). Very large/detailed drawings may exceed the data capacity of a QR code; in that case a metadata-only code is shown instead, with a message suggesting a smaller grid or `Esporta JSON`.
 7. Use **Annulla**/**Ripeti** (or Ctrl+Z / Ctrl+Y) to undo/redo drawing actions — one step per stroke, clear, or same-size import. Changing the grid size (or importing a drawing with a different size) resets the undo history.
 8. **Cancella tutto** wipes the canvas back to blank.
 9. The drawing autosaves as you work — reopening the app (same browser, same device) picks up right where you left off. Opening a shared QR code link takes priority over the autosave for that load.

@@ -579,14 +579,19 @@ function loadSharedDrawingFromURL() {
 
         saveState();
 
-        // Aspetta che il canvas sia renderizzato, poi scarica automaticamente
-        // l'immagine e ripulisce l'URL per evitare download ripetuti a un
+        // Ripulisce l'URL per evitare di ricaricare lo stesso disegno a un
         // eventuale refresh della pagina.
-        setTimeout(() => {
-            downloadImage();
-            const cleanURL = window.location.origin + window.location.pathname;
-            window.history.replaceState({}, document.title, cleanURL);
-        }, 100);
+        const cleanURL = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanURL);
+
+        // Niente download automatico: i browser moderni spesso bloccano un
+        // download avviato via script senza un'interazione diretta
+        // dell'utente, e lo fanno in silenzio (nessun errore da
+        // intercettare) — risultato: "a volte funziona, a volte no", senza
+        // che l'utente capisca perché. Meglio avvisarlo e lasciare che sia
+        // lui a cliccare "Scarica immagine" quando vuole, un click vero che
+        // funziona sempre.
+        alert('Disegno caricato dal QR code! Usa "Scarica immagine" per salvarlo.');
 
         return true;
     } catch (error) {
